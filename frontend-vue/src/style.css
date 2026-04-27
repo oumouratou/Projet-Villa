@@ -1,0 +1,165 @@
+@import url('https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap');
+@import 'tailwindcss';
+
+:root {
+  font-family: 'Manrope', sans-serif;
+  color-scheme: light;
+  --app-primary: #0f172a;
+  --app-accent: #0ea5e9;
+  --app-accent-strong: #2563eb;
+  --app-surface: rgba(255, 255, 255, 0.9);
+  --app-border: rgba(148, 163, 184, 0.25);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  margin: 0;
+  background:
+    radial-gradient(circle at top left, rgba(14, 165, 233, 0.14), transparent 28%),
+    radial-gradient(circle at top right, rgba(59, 130, 246, 0.12), transparent 24%),
+    linear-gradient(180deg, #f8fafc 0%, #eef4fb 100%);
+  color: rgb(15 23 42);
+}
+
+img {
+  display: block;
+  max-width: 100%;
+}
+
+a {
+  text-decoration: none;
+}
+
+::selection {
+  background: rgba(14, 165, 233, 0.24);
+  color: rgb(15 23 42);
+}
+
+.header-bg {
+  background:
+    radial-gradient(circle at 10% 20%, rgba(56, 189, 248, 0.35), transparent 35%),
+    radial-gradient(circle at 85% 10%, rgba(20, 184, 166, 0.35), transparent 45%),
+    linear-gradient(110deg, #07111f 0%, #0f172a 40%, #1d4ed8 100%);
+}
+
+.metric-card {
+  border: 1px solid rgb(203 213 225);
+  background: white;
+  border-radius: 0.75rem;
+  padding: 1rem;
+  display: grid;
+  gap: 0.4rem;
+}
+
+.metric-card h2 {
+  margin: 0;
+  color: rgb(51 65 85);
+  font-size: 0.875rem;
+}
+
+.metric-card strong {
+  font-size: 1.35rem;
+  letter-spacing: -0.02em;
+}
+
+.section-shell {
+  position: relative;
+}
+
+.section-shell::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0), rgba(248, 250, 252, 0.45));
+  pointer-events: none;
+}
+
+.glass-card {
+  backdrop-filter: blur(18px);
+  background: rgba(255, 255, 255, 0.82);
+  border: 1px solid rgba(148, 163, 184, 0.2);
+  box-shadow: 0 22px 60px rgba(15, 23, 42, 0.08);
+}
+
+.soft-shadow {
+  box-shadow: 0 20px 55px rgba(15, 23, 42, 0.1);
+}
+
+.hero-glow {
+  position: absolute;
+  inset: auto auto -8rem -6rem;
+  width: 22rem;
+  height: 22rem;
+  border-radius: 9999px;
+  background: radial-gradient(circle, rgba(14, 165, 233, 0.28), transparent 72%);
+  filter: blur(14px);
+  pointer-events: none;
+}
+
+.hero-image-float {
+  animation: float 10s ease-in-out infinite;
+}
+
+.app-input {
+  width: 100%;
+  border-radius: 1rem;
+  border: 1px solid rgba(148, 163, 184, 0.35);
+  background: rgba(248, 250, 252, 0.95);
+  padding: 0.9rem 1rem;
+  color: rgb(15 23 42);
+  outline: none;
+  transition: border-color 180ms ease, box-shadow 180ms ease, transform 180ms ease;
+}
+
+.app-input:focus {
+  border-color: rgba(14, 165, 233, 0.75);
+  box-shadow: 0 0 0 4px rgba(14, 165, 233, 0.12);
+}
+
+.app-button-primary,
+.app-button-secondary {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  border-radius: 9999px;
+  padding: 0.85rem 1.25rem;
+  font-size: 0.875rem;
+  font-weight: 700;
+  transition: transform 180ms ease, box-shadow 180ms ease, background-color 180ms ease, color 180ms ease;
+}
+
+.app-button-primary {
+  background: linear-gradient(135deg, var(--app-accent) 0%, var(--app-accent-strong) 100%);
+  color: white;
+  box-shadow: 0 18px 35px rgba(37, 99, 235, 0.18);
+}
+
+.app-button-primary:hover,
+.app-button-secondary:hover {
+  transform: translateY(-1px);
+}
+
+.app-button-secondary {
+  border: 1px solid rgba(148, 163, 184, 0.3);
+  background: rgba(255, 255, 255, 0.95);
+  color: rgb(51 65 85);
+}
+
+@keyframes float {
+  0%,
+  100% {
+    transform: translateY(0px);
+  }
+
+  50% {
+    transform: translateY(-10px);
+  }
+}

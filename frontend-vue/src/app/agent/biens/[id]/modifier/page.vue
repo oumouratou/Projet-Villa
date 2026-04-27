@@ -1,0 +1,209 @@
+<template>
+  <div v-if="!property" class="flex flex-col items-center justify-center py-12">
+    <h1 class="text-2xl font-bold">Bien non trouvé</h1>
+    <router-link to="/agent/biens" class="mt-4 px-4 py-2 bg-blue-600 text-white rounded-md">
+      Retour à la liste
+    </router-link>
+  </div>
+
+  <div v-else class="space-y-6 p-6">
+    <div class="flex items-center gap-4">
+      <router-link :to="`/agent/biens/${property.id}`" class="p-2 hover:bg-slate-100 rounded-full transition-colors">
+        <ArrowLeft class="h-5 w-5 text-slate-600" />
+      </router-link>
+      <div>
+        <h1 class="text-3xl font-bold text-slate-900">Modifier le bien</h1>
+        <p class="text-slate-500 mt-1">{{ property.title }}</p>
+      </div>
+    </div>
+
+    <form @submit.prevent="handleSubmit" class="space-y-6">
+      <div class="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
+        <div class="p-6 border-b border-slate-100">
+          <h3 class="font-bold text-slate-900 flex items-center gap-2">
+            <Building2 class="h-5 w-5 text-blue-600" />
+            Informations générales
+          </h3>
+        </div>
+        <div class="p-6 space-y-4">
+          <div class="grid gap-4 sm:grid-cols-2">
+            <div class="space-y-2">
+              <label class="text-sm font-medium text-slate-700">Titre du bien *</label>
+              <input v-model="formData.title" type="text" class="w-full px-3 py-2 rounded-lg border border-slate-300 focus:ring-2 focus:ring-blue-500 outline-none" />
+            </div>
+            <div class="space-y-2">
+              <label class="text-sm font-medium text-slate-700">Type de bien *</label>
+              <select v-model="formData.type" class="w-full px-3 py-2 rounded-lg border border-slate-300 focus:ring-2 focus:ring-blue-500 outline-none">
+                <option value="villa">Villa</option>
+                <option value="appartement">Appartement</option>
+                <option value="studio">Studio</option>
+                <option value="maison">Maison</option>
+                <option value="duplex">Duplex</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="space-y-2">
+            <label class="text-sm font-medium text-slate-700">Description *</label>
+            <textarea v-model="formData.description" rows="4" class="w-full px-3 py-2 rounded-lg border border-slate-300 focus:ring-2 focus:ring-blue-500 outline-none"></textarea>
+          </div>
+
+          <div class="grid gap-4 sm:grid-cols-2">
+            <div class="space-y-2">
+              <label class="text-sm font-medium text-slate-700">Adresse *</label>
+              <input v-model="formData.address" type="text" class="w-full px-3 py-2 rounded-lg border border-slate-300 focus:ring-2 focus:ring-blue-500 outline-none" />
+            </div>
+            <div class="space-y-2">
+              <label class="text-sm font-medium text-slate-700">Ville *</label>
+              <select v-model="formData.city" class="w-full px-3 py-2 rounded-lg border border-slate-300 focus:ring-2 focus:ring-blue-500 outline-none">
+                <option value="abidjan">Abidjan</option>
+                <option value="bouake">Bouaké</option>
+                <option value="yamoussoukro">Yamoussoukro</option>
+                <option value="san-pedro">San Pedro</option>
+              </select>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="bg-white rounded-xl border border-slate-200 shadow-sm p-6">
+        <h3 class="font-bold text-slate-900 mb-4">Caractéristiques</h3>
+        <div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          <div class="space-y-2">
+            <label class="text-sm font-medium text-slate-700">Surface (m²) *</label>
+            <input v-model="formData.surface" type="number" class="w-full px-3 py-2 rounded-lg border border-slate-300 outline-none" />
+          </div>
+          <div class="space-y-2">
+            <label class="text-sm font-medium text-slate-700">Chambres *</label>
+            <input v-model="formData.bedrooms" type="number" class="w-full px-3 py-2 rounded-lg border border-slate-300 outline-none" />
+          </div>
+          <div class="space-y-2">
+            <label class="text-sm font-medium text-slate-700">Salles de bain *</label>
+            <input v-model="formData.bathrooms" type="number" class="w-full px-3 py-2 rounded-lg border border-slate-300 outline-none" />
+          </div>
+          <div class="space-y-2">
+            <label class="text-sm font-medium text-slate-700">Capacité (pers.) *</label>
+            <input v-model="formData.capacity" type="number" class="w-full px-3 py-2 rounded-lg border border-slate-300 outline-none" />
+          </div>
+        </div>
+      </div>
+
+      <div class="bg-white rounded-xl border border-slate-200 shadow-sm p-6">
+        <h3 class="font-bold text-slate-900 mb-4">Tarification</h3>
+        <div class="grid gap-4 sm:grid-cols-2">
+          <div class="space-y-2">
+            <label class="text-sm font-medium text-slate-700">Prix par nuit (FCFA) *</label>
+            <input v-model="formData.pricePerNight" type="number" class="w-full px-3 py-2 rounded-lg border border-slate-300 outline-none" />
+          </div>
+          <div class="space-y-2">
+            <label class="text-sm font-medium text-slate-700">Statut *</label>
+            <select v-model="formData.status" class="w-full px-3 py-2 rounded-lg border border-slate-300 outline-none">
+              <option value="disponible">Disponible</option>
+              <option value="reserve">Réservé</option>
+              <option value="maintenance">En maintenance</option>
+            </select>
+          </div>
+        </div>
+      </div>
+
+      <div class="bg-white rounded-xl border border-slate-200 shadow-sm p-6">
+        <h3 class="font-bold text-slate-900 mb-4">Options et équipements</h3>
+        <div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          <div v-for="option in mockOptions" :key="option.id" class="flex items-center space-x-3">
+            <input 
+              type="checkbox" 
+              :id="option.id" 
+              :value="option.id" 
+              v-model="formData.options"
+              class="w-4 h-4 text-blue-600 rounded border-slate-300 focus:ring-blue-500"
+            />
+            <label :for="option.id" class="text-sm font-medium text-slate-700 cursor-pointer">
+              {{ option.name }}
+            </label>
+          </div>
+        </div>
+      </div>
+
+      <div class="bg-white rounded-xl border border-slate-200 shadow-sm p-6">
+        <h3 class="font-bold text-slate-900 mb-4">Photos du bien</h3>
+        <div class="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-4">
+          <div v-for="(img, idx) in formData.images" :key="idx" class="relative aspect-video rounded-lg overflow-hidden bg-slate-100">
+            <img :src="img" class="w-full h-full object-cover" />
+            <button 
+              type="button" 
+              @click="removeImage(idx)"
+              class="absolute top-2 right-2 p-1 bg-red-600 text-white rounded-full hover:bg-red-700 shadow-lg"
+            >
+              <X class="h-3 w-3" />
+            </button>
+          </div>
+        </div>
+        <div class="border-2 border-dashed border-slate-200 rounded-lg p-8 text-center hover:border-blue-400 transition-colors cursor-pointer">
+          <Upload class="h-8 w-8 mx-auto text-slate-400 mb-2" />
+          <p class="text-sm text-slate-500 mb-2">Cliquez pour ajouter des photos</p>
+          <button type="button" class="text-sm font-semibold text-blue-600">Parcourir les fichiers</button>
+        </div>
+      </div>
+
+      <div class="flex items-center justify-end gap-4">
+        <router-link :to="`/agent/biens/${property?.id}`" class="px-6 py-2 border border-slate-300 rounded-lg hover:bg-slate-50 transition-colors">
+          Annuler
+        </router-link>
+        <button 
+          type="submit" 
+          class="flex items-center gap-2 px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 shadow-sm transition-colors"
+        >
+          <Save class="h-4 w-4" />
+          Enregistrer les modifications
+        </button>
+      </div>
+    </form>
+  </div>
+</template>
+
+<script setup lang="ts">
+import { ref, reactive } from 'vue'
+import { ArrowLeft, Upload, X, Save, Building2 } from 'lucide-vue-next'
+
+// Simulation des props ou de la récupération d'ID (via vue-router ou inertia)
+const props = defineProps<{ id: string }>()
+
+// MOCK DATA (À importer de ton fichier lib)
+const mockOptions = [
+  { id: 'wifi', name: 'Wi-Fi' },
+  { id: 'pool', name: 'Piscine' },
+  { id: 'climatisation', name: 'Climatisation' },
+  { id: 'parking', name: 'Parking' },
+  { id: 'cuisine', name: 'Cuisine équipée' },
+]
+
+// Simulation d'un bien trouvé
+const property = ref({
+  id: '1',
+  title: 'Villa de Luxe avec Piscine',
+  type: 'villa',
+  description: 'Une magnifique villa située au coeur de la ville...',
+  address: 'Rues des Jardins',
+  city: 'abidjan',
+  surface: 250,
+  bedrooms: 4,
+  bathrooms: 3,
+  capacity: 8,
+  pricePerNight: 150000,
+  status: 'disponible',
+  options: ['wifi', 'pool'],
+  images: ['https://images.unsplash.com/photo-1580587771525-78b9dba3b914?auto=format&fit=crop&q=80&w=800']
+})
+
+// État local réactif pour le formulaire
+const formData = reactive({ ...property.value })
+
+const removeImage = (index: number) => {
+  formData.images.splice(index, 1)
+}
+
+const handleSubmit = () => {
+  console.log("Données envoyées :", formData)
+  // Ici : axios.put(`/api/properties/${property.value.id}`, formData)
+}
+</script>
