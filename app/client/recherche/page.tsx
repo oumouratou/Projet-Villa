@@ -1,13 +1,19 @@
 "use client"
 
-import { useState, useMemo } from "react"
+import { useEffect, useMemo, useState } from "react"
 import Link from "next/link"
 import Image from "next/image"
 import { Search, SlidersHorizontal, MapPin, Bed, Bath, Maximize, X, Calendar } from "lucide-react"
 import { DashboardHeader } from "@/components/dashboard-header"
-import { mockProperties, mockOptions } from "@/lib/mock-data"
+import type { Property, PropertyOption } from "@/lib/types"
+import { getProperties, getPropertyOptions } from "@/lib/backend-api"
 
 export default function ClientSearchPage() {
+  const [properties, setProperties] = useState<Property[]>([])
+  const [options, setOptions] = useState<PropertyOption[]>([])
+  const [isLoading, setIsLoading] = useState(true)
+  const [loadError, setLoadError] = useState<string | null>(null)
+
   const [searchCity, setSearchCity] = useState("")
   const [priceMin, setPriceMin] = useState("")
   const [priceMax, setPriceMax] = useState("")
@@ -15,7 +21,32 @@ export default function ClientSearchPage() {
   const [selectedOptions, setSelectedOptions] = useState<string[]>([])
   const [showFilters, setShowFilters] = useState(false)
 
-  const availableProperties = mockProperties.filter(p => p.status === "disponible")
+  useEffect(() => {
+    let cancelled = false
+
+    async function load() {
+      setIsLoading(true)
+      setLoadError(null)
+      try {
+        const [props, opts] = await Promise.all([getProperties(), getPropertyOptions()])
+        if (cancelled) return
+        setProperties(props)
+        setOptions(opts)
+      } catch (e) {
+        if (cancelled) return
+        setLoadError(e instanceof Error ? e.message : "Erreur lors du chargement")
+      } finally {
+        if (!cancelled) setIsLoading(false)
+      }
+    }
+
+    load()
+    return () => {
+      cancelled = true
+    }
+  }, [])
+
+  const availableProperties = properties.filter((p) => p.status === "disponible")
 
   const filteredProperties = useMemo(() => {
     let result = [...availableProperties]
@@ -23,16 +54,16 @@ export default function ClientSearchPage() {
     if (searchCity) {
       result = result.filter(p =>
         p.city.toLowerCase().includes(searchCity.toLowerCase()) ||
-        p.postalCode.includes(searchCity)
+        (p.postalCode ?? "").includes(searchCity)
       )
     }
 
     if (priceMin) {
-      result = result.filter(p => p.price >= Number(priceMin))
+      result = result.filter(p => p.pricePerNight >= Number(priceMin))
     }
 
     if (priceMax) {
-      result = result.filter(p => p.price <= Number(priceMax))
+      result = result.filter(p => p.pricePerNight <= Number(priceMax))
     }
 
     if (surfaceMin) {
@@ -111,7 +142,7 @@ export default function ClientSearchPage() {
                   <label className="block text-sm font-medium text-foreground mb-2">Prix minimum</label>
                   <input
                     type="number"
-                    placeholder="Min EUR/mois"
+                    placeholder="Min FCFA/nuit"
                     value={priceMin}
                     onChange={(e) => setPriceMin(e.target.value)}
                     className="w-full px-4 py-2.5 bg-background border border-input rounded-lg text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring"
@@ -121,7 +152,7 @@ export default function ClientSearchPage() {
                   <label className="block text-sm font-medium text-foreground mb-2">Prix maximum</label>
                   <input
                     type="number"
-                    placeholder="Max EUR/mois"
+                    placeholder="Max FCFA/nuit"
                     value={priceMax}
                     onChange={(e) => setPriceMax(e.target.value)}
                     className="w-full px-4 py-2.5 bg-background border border-input rounded-lg text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring"
@@ -142,7 +173,7 @@ export default function ClientSearchPage() {
               <div className="mb-4">
                 <label className="block text-sm font-medium text-foreground mb-2">Options</label>
                 <div className="flex flex-wrap gap-2">
-                  {mockOptions.map((option) => (
+                  {options.map((option) => (
                     <button
                       key={option.id}
                       onClick={() => toggleOption(option.id)}
@@ -175,11 +206,24 @@ export default function ClientSearchPage() {
 
         {/* Results Count */}
         <p className="text-muted-foreground mb-4">
-          {filteredProperties.length} bien{filteredProperties.length > 1 ? "s" : ""} disponible{filteredProperties.length > 1 ? "s" : ""}
+          {isLoading ? "Chargement..." : `${filteredProperties.length} bien${filteredProperties.length > 1 ? "s" : ""} disponible${filteredProperties.length > 1 ? "s" : ""}`}
         </p>
 
         {/* Properties Grid */}
-        {filteredProperties.length > 0 ? (
+        {isLoading ? (
+          <div className="text-center py-16 bg-card rounded-xl border border-border text-muted-foreground">Chargement des biens...</div>
+        ) : loadError ? (
+          <div className="text-center py-16 bg-card rounded-xl border border-border">
+            <h3 className="text-lg font-semibold text-foreground mb-2">Erreur de chargement</h3>
+            <p className="text-muted-foreground mb-4">{loadError}</p>
+            <button
+              onClick={() => window.location.reload()}
+              className="text-primary hover:text-primary/80 font-medium"
+            >
+              Reessayer
+            </button>
+          </div>
+        ) : filteredProperties.length > 0 ? (
           <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
             {filteredProperties.map((property) => (
               <article key={property.id} className="bg-card rounded-xl border border-border overflow-hidden hover:shadow-lg transition-shadow">
@@ -191,7 +235,7 @@ export default function ClientSearchPage() {
                     className="object-cover"
                   />
                   <div className="absolute bottom-3 left-3 px-3 py-1 bg-primary text-primary-foreground rounded-lg font-semibold text-sm">
-                    {property.price.toLocaleString()} EUR/mois
+                    {property.pricePerNight.toLocaleString()} FCFA / nuit
                   </div>
                 </div>
 

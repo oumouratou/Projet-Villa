@@ -3,10 +3,17 @@ import { Search, Shield, Clock, Users, ArrowRight, Building2, MapPin } from "luc
 import { PublicHeader } from "@/components/public-header"
 import { PublicFooter } from "@/components/public-footer"
 import { PropertyCard } from "@/components/property-card"
-import { mockProperties } from "@/lib/mock-data"
+import { getProperties } from "@/lib/backend-api"
+import type { Property } from "@/lib/types"
 
-export default function HomePage() {
-  const featuredProperties = mockProperties.filter(p => p.status === "disponible").slice(0, 3)
+export default async function HomePage() {
+  let featuredProperties: Property[] = []
+  try {
+    const properties = await getProperties()
+    featuredProperties = properties.filter((p) => p.status === "disponible").slice(0, 3)
+  } catch {
+    featuredProperties = []
+  }
 
   return (
     <div className="min-h-screen flex flex-col">

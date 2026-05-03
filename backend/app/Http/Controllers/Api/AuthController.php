@@ -43,27 +43,46 @@ class AuthController extends Controller
     public function register(Request $request): JsonResponse
     {
         $payload = $request->validate([
-            'name' => ['required', 'string', 'max:255'],
+            'first_name' => ['nullable', 'required_without:name', 'string', 'max:255'],
+            'last_name' => ['nullable', 'required_without:name', 'string', 'max:255'],
+            'name' => ['nullable', 'string', 'max:255'],
             'email' => ['required', 'email', 'unique:users,email'],
             'phone' => ['nullable', 'string', 'max:30'],
             'password' => ['required', 'string', 'min:8'],
+        ], [
+            'email.unique' => 'Cet email est déjà utilisé.',
+            'email.email' => 'Veuillez saisir un email valide.',
+            'password.min' => 'Le mot de passe doit contenir au moins 8 caractères.',
         ]);
 
+        $firstName = $payload['first_name'] ?? null;
+        $lastName = $payload['last_name'] ?? null;
+
+        if (! $firstName || ! $lastName) {
+            $names = preg_split('/\s+/', trim($payload['name'] ?? '')) ?: [];
+            $firstName = $firstName ?? ($names[0] ?? null);
+            $lastName = $lastName ?? (count($names) > 1 ? implode(' ', array_slice($names, 1)) : null);
+        }
+
+        $displayName = trim(($firstName ?? '') . ' ' . ($lastName ?? ''));
+        if ($displayName === '') {
+            $displayName = $payload['name'] ?? 'Client';
+        }
+
         $user = User::create([
-            'name' => $payload['name'],
+            'first_name' => $firstName,
+            'last_name' => $lastName,
+            'name' => $displayName,
             'email' => $payload['email'],
             'phone' => $payload['phone'] ?? null,
-            'role' => 'client',
-            'status' => 'actif',
             'password' => $payload['password'],
         ]);
 
-        $names = preg_split('/\s+/', trim($payload['name'])) ?: [$payload['name']];
         $client = Client::updateOrCreate([
             'email' => $payload['email'],
         ], [
-            'first_name' => $names[0] ?? $payload['name'],
-            'last_name' => $names[1] ?? '',
+            'first_name' => $firstName ?? $displayName,
+            'last_name' => $lastName ?? '',
             'email' => $payload['email'],
             'phone' => $payload['phone'] ?? '',
             'status' => 'actif',

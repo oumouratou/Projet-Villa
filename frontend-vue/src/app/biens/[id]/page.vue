@@ -1,312 +1,408 @@
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue'
-import { useRoute } from 'vue-router'
+import { computed, onMounted, onUnmounted, reactive, ref } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
 import {
-  ArrowLeft,
-  Bath,
-  BedDouble,
-  CalendarDays,
-  CheckCircle2,
-  Clock,
-  Car,
-  ChevronLeft,
-  ChevronRight,
-  Heart,
-  MapPin,
-  Maximize,
-  ShieldCheck,
-  Tv,
-  Users,
-  Waves,
-  Wind,
-  UtensilsCrossed,
-  Wifi,
-  XCircle,
+  ArrowLeft, Bath, BedDouble, CalendarDays, CheckCircle2, Clock,
+  Car, ChevronLeft, ChevronRight, Heart, MapPin, Maximize,
+  ShieldCheck, Users, Waves, Wind, Wifi, XCircle, Droplet,
+  Trees, LogIn, UserPlus, Sparkles, Star,
 } from 'lucide-vue-next'
-import { getDetail, getList } from '@/lib/api'
+import { createReservation, getProperty } from '@/lib/api'
+import { getStoredToken } from '@/lib/session'
 
-const route = useRoute()
-const property = ref<any | null>(null)
+const route  = useRoute()
+const router = useRouter()
+
+const property         = ref<any | null>(null)
+const loading          = ref(true)
 const activeImageIndex = ref(0)
+const isFavorite       = ref(false)
+let   slideshowTimer: ReturnType<typeof setInterval> | null = null
+
+const reservationForm = reactive({ startDate: '', endDate: '' })
+const bookingSubmitting = ref(false)
+const bookingSuccess    = ref(false)
+const bookingError      = ref<string | null>(null)
+
+const isLoggedIn = computed(() => Boolean(getStoredToken()))
+
+const reservationPageUrl = computed(() =>
+  `/client/reservations/nouvelle?bien=${route.params.id}`
+)
+const loginUrl = computed(() =>
+  `/connexion?redirect=${encodeURIComponent(reservationPageUrl.value)}`
+)
+const registerUrl = computed(() =>
+  `/inscription?redirect=${encodeURIComponent(reservationPageUrl.value)}`
+)
 
 const fallbackGallery = [
-  'https://images.unsplash.com/photo-1613490493576-7fde63acd811?w=1400&h=1000&fit=crop',
-  'https://images.unsplash.com/photo-1600585154340-be6161a56a0c?w=1400&h=1000&fit=crop',
-  'https://images.unsplash.com/photo-1505693416388-ac5ce068fe85?w=1400&h=1000&fit=crop',
-  'https://images.unsplash.com/photo-1522708323590-d24dbb6b0267?w=1400&h=1000&fit=crop',
-  'https://images.unsplash.com/photo-1502005229762-cf1b2da7c5d6?w=1400&h=1000&fit=crop',
+  'https://images.unsplash.com/photo-1613490493576-7fde63acd811?w=1400&h=900&fit=crop',
+  'https://images.unsplash.com/photo-1600585154340-be6161a56a0c?w=1400&h=900&fit=crop',
+  'https://images.unsplash.com/photo-1505693416388-ac5ce068fe85?w=1400&h=900&fit=crop',
+  'https://images.unsplash.com/photo-1522708323590-d24dbb6b0267?w=1400&h=900&fit=crop',
+  'https://images.unsplash.com/photo-1502005229762-cf1b2da7c5d6?w=1400&h=900&fit=crop',
 ]
 
-const iconMap: Record<string, any> = { wifi: Wifi, car: Car, waves: Waves, wind: Wind, tv: Tv, utensils: UtensilsCrossed }
-const statusLabels: Record<string, string> = { disponible: 'Disponible', reserve: 'Réservé', maintenance: 'Maintenance' }
-const statusClasses: Record<string, string> = {
-  disponible: 'inline-flex items-center rounded-full bg-emerald-100 px-3 py-1 text-xs font-bold text-emerald-700',
-  reserve: 'inline-flex items-center rounded-full bg-sky-100 px-3 py-1 text-xs font-bold text-sky-700',
-  maintenance: 'inline-flex items-center rounded-full bg-slate-100 px-3 py-1 text-xs font-bold text-slate-700',
-}
-const reservationLabels: Record<string, string> = { confirmee: 'Confirmée', en_attente: 'En attente', refusee: 'Refusée', annulee: 'Annulée' }
-const reservationIcons: Record<string, any> = { confirmee: CheckCircle2, en_attente: Clock, refusee: XCircle }
-const reservationStatusClasses: Record<string, string> = {
-  confirmee: 'inline-flex items-center rounded-full bg-emerald-100 px-2.5 py-0.5 text-xs font-bold text-emerald-700',
-  en_attente: 'inline-flex items-center rounded-full bg-amber-100 px-2.5 py-0.5 text-xs font-bold text-amber-700',
-  refusee: 'inline-flex items-center rounded-full bg-red-100 px-2.5 py-0.5 text-xs font-bold text-red-700',
-  annulee: 'inline-flex items-center rounded-full bg-slate-100 px-2.5 py-0.5 text-xs font-bold text-slate-700',
-}
-
-const propertyReservations = ref<any[]>([])
-const propertyOptions = computed(() => property.value?.options ?? [])
 const galleryImages = computed<string[]>(() => {
-  const baseImages = (property.value?.images && property.value.images.length > 0 ? property.value.images : fallbackGallery) as string[]
-  const uniqueImages = [...new Set(baseImages)]
-
-  while (uniqueImages.length < 5) {
-    uniqueImages.push(fallbackGallery[uniqueImages.length % fallbackGallery.length])
-  }
-
-  return uniqueImages
-})
-
-const mainImage = computed(() => galleryImages.value[activeImageIndex.value % galleryImages.value.length])
-
-const mainStats = computed(() => [
-  { label: 'Surface', value: `${property.value?.surface ?? 0} m²`, icon: Maximize },
-  { label: 'Chambres', value: property.value?.bedrooms ?? 0, icon: BedDouble },
-  { label: 'Salles de bain', value: property.value?.bathrooms ?? 0, icon: Bath },
-  { label: 'Capacité', value: `${property.value?.capacity ?? 0} pers.`, icon: Users },
-])
-
-const roomGallery = computed(() => [
-  { label: 'Salon lumineux', image: galleryImages.value[1] ?? galleryImages.value[0] },
-  { label: 'Chambre principale', image: galleryImages.value[2] ?? galleryImages.value[0] },
-  { label: 'Piscine et extérieur', image: galleryImages.value[3] ?? galleryImages.value[0] },
-])
-
-const sideStats = computed(() => {
-  const confirmed = propertyReservations.value.filter(reservation => reservation.status === 'confirmee')
-  const totalRevenue = confirmed.reduce((sum, reservation) => sum + reservation.totalPrice, 0)
-
-  return [
-    { label: 'Total réservations', value: propertyReservations.value.length },
-    { label: 'Confirmées', value: confirmed.length, color: 'text-emerald-600' },
-    { label: 'En attente', value: propertyReservations.value.filter(reservation => reservation.status === 'en_attente').length, color: 'text-amber-600' },
-    { label: 'Revenus totaux', value: formatPrice(totalRevenue) },
+  const base = property.value?.images?.filter(Boolean) ?? []
+  const imgs = base.length >= 5 ? base : [
+    ...base,
+    ...fallbackGallery.slice(base.length),
   ]
+  return imgs.slice(0, 5)
 })
 
-const getClientName = (client: any) => client ? `${client.first_name || client.firstName || ''} ${client.last_name || client.lastName || ''}`.trim() : 'Client inconnu'
+const mainImage = computed(() =>
+  galleryImages.value[activeImageIndex.value % galleryImages.value.length]
+)
 
-const formatDate = (date: Date) => date.toLocaleDateString('fr-FR')
-const formatPrice = (price: number) => `${price.toLocaleString()} FCFA`
-
+const startSlideshow = () => {
+  slideshowTimer = setInterval(() => {
+    activeImageIndex.value = (activeImageIndex.value + 1) % galleryImages.value.length
+  }, 3500)
+}
+const stopSlideshow = () => {
+  if (slideshowTimer) { clearInterval(slideshowTimer); slideshowTimer = null }
+}
 const goPrev = () => {
+  stopSlideshow()
   activeImageIndex.value = (activeImageIndex.value - 1 + galleryImages.value.length) % galleryImages.value.length
 }
-
 const goNext = () => {
+  stopSlideshow()
   activeImageIndex.value = (activeImageIndex.value + 1) % galleryImages.value.length
 }
 
+const iconMap: Record<string, any> = {
+  wifi: Wifi, 'wi-fi': Wifi,
+  piscine: Waves, pool: Waves, waves: Waves,
+  parking: Car, garage: Car, car: Car,
+  jardin: Trees, garden: Trees, trees: Trees,
+  climatisation: Wind, 'air conditionné': Wind, wind: Wind,
+  spa: Droplet, droplet: Droplet,
+}
+const getOptionIcon = (name: string) => iconMap[name.toLowerCase().trim()] ?? Sparkles
+
+const statusLabels: Record<string, string> = {
+  disponible: 'Disponible', reserve: 'Réservé', maintenance: 'Maintenance',
+}
+const statusClasses: Record<string, string> = {
+  disponible: 'bg-emerald-100 text-emerald-700 border border-emerald-200',
+  reserve:    'bg-sky-100 text-sky-700 border border-sky-200',
+  maintenance:'bg-slate-100 text-slate-600 border border-slate-200',
+}
+
+const bookingNights = computed(() => {
+  if (!reservationForm.startDate || !reservationForm.endDate) return 0
+  const diff = Math.floor(
+    (new Date(reservationForm.endDate).getTime() - new Date(reservationForm.startDate).getTime())
+    / 86400000
+  )
+  return diff > 0 ? diff : 0
+})
+const bookingTotal = computed(() =>
+  bookingNights.value * Number(property.value?.pricePerNight ?? 0)
+)
+const minDate = computed(() => new Date().toISOString().split('T')[0])
+
+const submitBooking = async () => {
+  bookingError.value   = null
+  bookingSuccess.value = false
+  if (!isLoggedIn.value)  { router.push(loginUrl.value); return }
+  if (!reservationForm.startDate || !reservationForm.endDate) {
+    bookingError.value = 'Veuillez sélectionner une période.'; return
+  }
+  if (bookingNights.value < 1) {
+    bookingError.value = 'La date de fin doit être après la date de début.'; return
+  }
+  bookingSubmitting.value = true
+  try {
+    await createReservation({
+      propertyId: String(property.value.id),
+      startDate:  reservationForm.startDate,
+      endDate:    reservationForm.endDate,
+    })
+    bookingSuccess.value = true
+    reservationForm.startDate = ''
+    reservationForm.endDate   = ''
+  } catch (err) {
+    bookingError.value = err instanceof Error ? err.message : 'Une erreur est survenue.'
+  } finally {
+    bookingSubmitting.value = false
+  }
+}
+
+const formatPrice = (p: number) => `${Number(p).toLocaleString('fr-FR')} FCFA`
+
 onMounted(async () => {
   try {
-    property.value = await getDetail('/properties', String(route.params.id))
+    property.value = await getProperty(String(route.params.id))
   } catch {
     property.value = null
+  } finally {
+    loading.value = false
   }
-
-  try {
-    const reservations = await getList('/reservations')
-    propertyReservations.value = reservations.filter((reservation: any) => String(reservation.property_id || reservation.propertyId) === String(route.params.id))
-  } catch {
-    propertyReservations.value = []
-  }
+  startSlideshow()
 })
+
+onUnmounted(stopSlideshow)
 </script>
 
 <template>
-  <div v-if="!property" class="mx-auto flex min-h-[60vh] max-w-3xl flex-col items-center justify-center px-4 text-center">
+  <div v-if="loading" class="flex min-h-[60vh] items-center justify-center">
+    <div class="h-12 w-12 animate-spin rounded-full border-4 border-sky-500 border-t-transparent" />
+  </div>
+
+  <div v-else-if="!property" class="mx-auto flex min-h-[60vh] max-w-xl flex-col items-center justify-center px-4 text-center">
     <h1 class="text-3xl font-black text-slate-950">Bien non trouvé</h1>
-    <p class="mt-3 text-slate-600">Le bien demandé n’existe pas ou n’est plus disponible.</p>
-    <RouterLink to="/biens" class="mt-6 inline-flex items-center gap-2 rounded-full bg-slate-950 px-5 py-3 text-sm font-semibold text-white">
-      <ArrowLeft class="h-4 w-4" />
-      Retour à la liste
+    <p class="mt-3 text-slate-500">Ce bien n'existe pas ou n'est plus disponible.</p>
+    <RouterLink to="/biens"
+      class="mt-6 inline-flex items-center gap-2 rounded-full bg-slate-950 px-6 py-3 text-sm font-bold text-white hover:bg-slate-800 transition-colors">
+      <ArrowLeft class="h-4 w-4" /> Retour aux biens
     </RouterLink>
   </div>
 
-  <div v-else class="mx-auto max-w-7xl space-y-8 px-4 py-8 sm:px-6 lg:px-8">
-    <section class="glass-card rounded-[2rem] p-5 shadow-[0_28px_70px_rgba(15,23,42,0.12)]">
-      <div class="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
-        <div class="flex items-start gap-4">
-          <RouterLink to="/biens" class="inline-flex h-12 w-12 items-center justify-center rounded-2xl border border-slate-200 bg-white text-slate-700 transition-colors hover:bg-slate-100">
-            <ArrowLeft class="h-5 w-5" />
-          </RouterLink>
+  <div v-else class="bg-slate-50 pb-16">
+
+    <div class="relative h-[70vh] min-h-[500px] overflow-hidden bg-slate-950">
+      <transition name="fade-slide" mode="out-in">
+        <img :key="activeImageIndex" :src="mainImage" :alt="property.title" class="h-full w-full object-cover" />
+      </transition>
+
+      <div class="absolute inset-0 bg-gradient-to-t from-slate-950/80 via-slate-950/20 to-transparent" />
+
+      <div class="absolute left-4 top-4 sm:left-8 sm:top-8">
+        <RouterLink to="/biens"
+          class="inline-flex items-center gap-2 rounded-full bg-white/15 px-4 py-2 text-sm font-semibold text-white backdrop-blur-md hover:bg-white/25 transition-colors">
+          <ArrowLeft class="h-4 w-4" /> Retour
+        </RouterLink>
+      </div>
+
+      <button @click="isFavorite = !isFavorite"
+        class="absolute right-4 top-4 sm:right-8 sm:top-8 inline-flex h-11 w-11 items-center justify-center rounded-full bg-white/15 backdrop-blur-md transition-colors hover:bg-white/25">
+        <Heart class="h-5 w-5 transition-colors" :class="isFavorite ? 'fill-red-400 text-red-400' : 'text-white'" />
+      </button>
+
+      <div class="absolute inset-y-0 left-0 right-0 flex items-center justify-between px-4">
+        <button @click="goPrev" class="flex h-12 w-12 items-center justify-center rounded-full bg-black/30 text-white backdrop-blur-sm hover:bg-black/50 transition-colors">
+          <ChevronLeft class="h-6 w-6" />
+        </button>
+        <button @click="goNext" class="flex h-12 w-12 items-center justify-center rounded-full bg-black/30 text-white backdrop-blur-sm hover:bg-black/50 transition-colors">
+          <ChevronRight class="h-6 w-6" />
+        </button>
+      </div>
+
+      <div class="absolute bottom-24 left-1/2 flex -translate-x-1/2 gap-2">
+        <button v-for="(_, i) in galleryImages" :key="i"
+          @click="() => { stopSlideshow(); activeImageIndex = i }"
+          class="h-1.5 rounded-full transition-all"
+          :class="activeImageIndex === i ? 'w-8 bg-white' : 'w-2 bg-white/40'" />
+      </div>
+
+      <div class="absolute bottom-0 left-0 right-0 p-6 sm:p-10">
+        <div class="flex flex-wrap items-end justify-between gap-4">
           <div>
-            <div class="flex flex-wrap items-center gap-3">
-              <h1 class="text-3xl font-black tracking-tight text-slate-950">{{ property.title }}</h1>
-              <span :class="statusClasses[property.status]">{{ statusLabels[property.status] }}</span>
+            <div class="mb-2 flex flex-wrap items-center gap-2">
+              <span class="rounded-full bg-white/15 px-3 py-1 text-xs font-bold uppercase tracking-widest text-white/80 backdrop-blur">
+                {{ property.type || 'Villa' }}
+              </span>
+              <span class="rounded-full px-3 py-1 text-xs font-bold" :class="statusClasses[property.status]">
+                {{ statusLabels[property.status] || property.status }}
+              </span>
+              <span class="inline-flex items-center gap-1 rounded-full bg-white/10 px-3 py-1 text-xs font-semibold text-white/80 backdrop-blur">
+                <ShieldCheck class="h-3.5 w-3.5 text-emerald-300" /> Annonce vérifiée
+              </span>
             </div>
-            <div class="mt-2 flex items-center gap-2 text-slate-600">
-              <MapPin class="h-4 w-4" />
-              <span>{{ property.address }}, {{ property.city }}</span>
-            </div>
+            <h1 class="text-3xl font-black text-white sm:text-4xl lg:text-5xl">{{ property.title }}</h1>
+            <p class="mt-2 flex items-center gap-1.5 text-white/75">
+              <MapPin class="h-4 w-4 flex-shrink-0" />{{ property.address }}, {{ property.city }}
+            </p>
           </div>
-        </div>
-
-        <div class="flex items-center gap-3 self-start rounded-full bg-slate-950 px-4 py-2 text-white">
-          <ShieldCheck class="h-4 w-4 text-emerald-300" />
-          <span class="text-sm font-semibold">Annonce vérifiée</span>
+          <div class="rounded-2xl bg-white/10 px-5 py-3 text-right backdrop-blur-md border border-white/10">
+            <p class="text-xs uppercase tracking-widest text-white/60">Prix par nuit</p>
+            <p class="mt-0.5 text-3xl font-black text-white">{{ formatPrice(property.pricePerNight || 0) }}</p>
+          </div>
         </div>
       </div>
-    </section>
+    </div>
 
-    <section class="grid gap-6 lg:grid-cols-[1.2fr_0.8fr]">
-      <div class="space-y-4">
-        <div class="relative overflow-hidden rounded-[2rem] bg-slate-950 shadow-[0_28px_70px_rgba(15,23,42,0.2)]">
-          <img :src="mainImage" :alt="property.title" class="h-[30rem] w-full object-cover opacity-95 transition-all duration-500" />
-          <div class="absolute inset-0 bg-gradient-to-t from-slate-950/60 via-transparent to-transparent"></div>
-          <div class="absolute left-4 right-4 top-4 flex items-center justify-between gap-3">
-            <div class="rounded-full bg-white/15 px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.2em] text-white backdrop-blur">Galerie du bien</div>
-            <div class="flex items-center gap-2">
-              <button type="button" class="inline-flex h-10 w-10 items-center justify-center rounded-full bg-white/15 text-white backdrop-blur transition-colors hover:bg-white/25" @click="goPrev">
-                <ChevronLeft class="h-5 w-5" />
-              </button>
-              <button type="button" class="inline-flex h-10 w-10 items-center justify-center rounded-full bg-white/15 text-white backdrop-blur transition-colors hover:bg-white/25" @click="goNext">
-                <ChevronRight class="h-5 w-5" />
-              </button>
-            </div>
-          </div>
-          <div class="absolute bottom-4 left-4 right-4 flex items-end justify-between gap-4">
-            <div>
-              <p class="text-sm font-semibold uppercase tracking-[0.2em] text-white/70">{{ property.type }}</p>
-              <p class="mt-2 text-lg font-bold text-white">{{ formatPrice(property.pricePerNight) }} / nuit</p>
-            </div>
-            <button type="button" class="inline-flex items-center gap-2 rounded-full bg-white/15 px-4 py-2 text-sm font-semibold text-white backdrop-blur">
-              <Heart class="h-4 w-4" />
-              Favori
-            </button>
-          </div>
-        </div>
-
-        <div class="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-          <button
-            v-for="(image, index) in galleryImages"
-            :key="image"
-            type="button"
-            :class="[
-              'overflow-hidden rounded-[1.25rem] border transition-all',
-              activeImageIndex === index ? 'border-sky-500 ring-4 ring-sky-500/10' : 'border-slate-200 hover:border-slate-300',
-            ]"
-            @click="activeImageIndex = index"
-          >
-            <img :src="image" alt="Aperçu du bien" class="h-28 w-full object-cover" />
-          </button>
-        </div>
+    <div class="mx-auto -mt-8 max-w-7xl px-4 sm:px-6 lg:px-8">
+      <div class="grid grid-cols-5 gap-2 rounded-2xl overflow-hidden shadow-xl">
+        <button v-for="(img, i) in galleryImages" :key="img"
+          @click="() => { stopSlideshow(); activeImageIndex = i }"
+          class="relative overflow-hidden transition-all"
+          :class="activeImageIndex === i ? 'ring-4 ring-sky-500 ring-offset-2' : 'opacity-70 hover:opacity-100'">
+          <img :src="img" class="h-20 w-full object-cover" :alt="`Vue ${i + 1}`" />
+          <div v-if="activeImageIndex === i" class="absolute inset-0 bg-sky-500/20" />
+        </button>
       </div>
+    </div>
 
-      <div class="space-y-4">
-        <div class="glass-card rounded-[2rem] p-6">
-          <h3 class="text-lg font-bold text-slate-950">Le bien en un coup d’œil</h3>
-          <div class="mt-5 grid gap-4 sm:grid-cols-2">
-            <div v-for="stat in mainStats" :key="stat.label" class="rounded-2xl bg-slate-50 p-4">
-              <div class="flex items-center gap-3">
+    <div class="mx-auto mt-10 max-w-7xl px-4 sm:px-6 lg:px-8">
+      <div class="grid gap-8 lg:grid-cols-[1fr_400px]">
+
+        <div class="space-y-8">
+
+          <div class="grid grid-cols-2 gap-4 sm:grid-cols-4">
+            <div v-for="stat in [
+              { label: 'Surface', value: `${property.surface ?? 0} m²`, icon: Maximize },
+              { label: 'Chambres', value: property.bedrooms ?? 0, icon: BedDouble },
+              { label: 'Salles de bain', value: property.bathrooms ?? 0, icon: Bath },
+              { label: 'Capacité', value: `${property.capacity ?? 0} pers.`, icon: Users },
+            ]" :key="stat.label"
+              class="flex flex-col items-center gap-2 rounded-2xl bg-white p-4 text-center shadow-sm border border-slate-100">
+              <div class="flex h-10 w-10 items-center justify-center rounded-xl bg-sky-50">
                 <component :is="stat.icon" class="h-5 w-5 text-sky-600" />
+              </div>
+              <p class="text-xl font-black text-slate-950">{{ stat.value }}</p>
+              <p class="text-xs text-slate-500">{{ stat.label }}</p>
+            </div>
+          </div>
+
+          <div class="rounded-2xl bg-white p-6 shadow-sm border border-slate-100">
+            <h2 class="text-xl font-black text-slate-950 mb-4">Description</h2>
+            <p class="leading-8 text-slate-600">{{ property.description }}</p>
+          </div>
+
+          <div v-if="property.options?.length" class="rounded-2xl bg-white p-6 shadow-sm border border-slate-100">
+            <h2 class="text-xl font-black text-slate-950 mb-2">Équipements & Options</h2>
+            <p class="text-sm text-slate-500 mb-5">Ce bien dispose des équipements suivants</p>
+            <div class="grid grid-cols-2 gap-3 sm:grid-cols-3">
+              <div v-for="opt in property.options" :key="opt.id"
+                class="flex items-center gap-3 rounded-xl border border-slate-100 bg-slate-50 p-3 hover:border-sky-200 hover:bg-sky-50 transition-colors">
+                <div class="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-lg bg-sky-100">
+                  <component :is="getOptionIcon(opt.name)" class="h-5 w-5 text-sky-600" />
+                </div>
                 <div>
-                  <p class="text-xs text-slate-500">{{ stat.label }}</p>
-                  <p class="font-bold text-slate-950">{{ stat.value }}</p>
+                  <p class="font-semibold text-slate-950 text-sm">{{ opt.name }}</p>
+                  <p class="text-xs text-slate-400">Inclus</p>
                 </div>
               </div>
             </div>
           </div>
 
-          <div class="mt-6 rounded-[1.5rem] bg-slate-950 p-5 text-white">
-            <p class="text-sm text-white/65">Prix / nuit</p>
-            <p class="mt-1 text-4xl font-black tracking-tight">{{ formatPrice(property.pricePerNight) }}</p>
-            <p class="mt-2 text-sm text-white/70">Réservation sécurisée et accompagnée.</p>
+          <div class="rounded-2xl bg-white p-6 shadow-sm border border-slate-100">
+            <div class="flex items-center justify-between mb-4">
+              <h2 class="text-xl font-black text-slate-950">Avis clients</h2>
+              <div class="flex items-center gap-1">
+                <Star v-for="i in 5" :key="i" class="h-4 w-4 fill-amber-400 text-amber-400" />
+                <span class="ml-1 text-sm font-bold text-slate-700">4.9</span>
+              </div>
+            </div>
+            <div class="space-y-4">
+              <div v-for="avis in [
+                { nom: 'Kouadio M.', note: 5, texte: 'Séjour exceptionnel ! La villa est exactement comme sur les photos, très propre et bien équipée.' },
+                { nom: 'Aminata D.', note: 5, texte: 'Agent très réactif, je recommande vivement cette propriété pour des vacances en famille.' },
+              ]" :key="avis.nom" class="rounded-xl bg-slate-50 p-4 border border-slate-100">
+                <div class="flex items-center justify-between mb-2">
+                  <p class="font-semibold text-slate-950">{{ avis.nom }}</p>
+                  <div class="flex gap-0.5">
+                    <Star v-for="i in avis.note" :key="i" class="h-3.5 w-3.5 fill-amber-400 text-amber-400" />
+                  </div>
+                </div>
+                <p class="text-sm text-slate-600">{{ avis.texte }}</p>
+              </div>
+            </div>
           </div>
+
         </div>
 
-        <div class="glass-card rounded-[2rem] p-6">
-          <h3 class="text-lg font-bold text-slate-950">Ce que vous voyez ici</h3>
-          <div class="mt-4 grid gap-4">
-            <div v-for="room in roomGallery" :key="room.label" class="overflow-hidden rounded-[1.5rem] border border-slate-200 bg-white">
-              <img :src="room.image" :alt="room.label" class="h-36 w-full object-cover" />
-              <div class="p-4">
-                <p class="font-semibold text-slate-950">{{ room.label }}</p>
-                <p class="mt-1 text-sm text-slate-600">Un visuel détaillé pour mieux se projeter avant la visite.</p>
+        <div class="lg:col-span-1">
+          <div class="sticky top-6 space-y-4">
+
+            <div class="overflow-hidden rounded-2xl bg-white shadow-xl border border-slate-100">
+              <div class="bg-slate-950 p-5 text-white">
+                <p class="text-sm text-white/60">Prix par nuit</p>
+                <p class="mt-1 text-4xl font-black">{{ formatPrice(property.pricePerNight || 0) }}</p>
+                <p class="mt-1 text-sm text-white/60">Charges comprises · Réservation sécurisée</p>
+              </div>
+
+              <div class="p-5 space-y-4">
+
+                <div v-if="!isLoggedIn" class="space-y-3">
+                  <div class="rounded-xl bg-amber-50 border border-amber-200 p-4">
+                    <p class="font-semibold text-amber-900 text-sm">Connexion requise</p>
+                    <p class="mt-1 text-xs text-amber-700">Vous devez avoir un compte pour réserver ce bien.</p>
+                  </div>
+                  <RouterLink :to="loginUrl"
+                    class="flex w-full items-center justify-center gap-2 rounded-xl bg-sky-500 px-4 py-3.5 font-bold text-white hover:bg-sky-600 transition-colors">
+                    <LogIn class="h-5 w-5" />Se connecter pour réserver
+                  </RouterLink>
+                  <RouterLink :to="registerUrl"
+                    class="flex w-full items-center justify-center gap-2 rounded-xl border-2 border-slate-200 px-4 py-3 font-semibold text-slate-700 hover:bg-slate-50 transition-colors text-sm">
+                    <UserPlus class="h-4 w-4" />Créer un compte gratuitement
+                  </RouterLink>
+                </div>
+
+                <template v-else>
+                  <div v-if="property.status !== 'disponible'" class="rounded-xl bg-red-50 border border-red-200 p-4 text-center">
+                    <p class="font-semibold text-red-700">Ce bien n'est pas disponible</p>
+                  </div>
+
+                  <template v-else>
+                    <div class="grid grid-cols-2 gap-3">
+                      <div>
+                        <label class="mb-1 block text-xs font-bold uppercase tracking-wider text-slate-500">Arrivée</label>
+                        <input v-model="reservationForm.startDate" type="date" :min="minDate"
+                          class="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm focus:border-sky-500 focus:outline-none focus:ring-2 focus:ring-sky-500/20" />
+                      </div>
+                      <div>
+                        <label class="mb-1 block text-xs font-bold uppercase tracking-wider text-slate-500">Départ</label>
+                        <input v-model="reservationForm.endDate" type="date" :min="reservationForm.startDate || minDate"
+                          class="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm focus:border-sky-500 focus:outline-none focus:ring-2 focus:ring-sky-500/20" />
+                      </div>
+                    </div>
+
+                    <div v-if="bookingNights > 0" class="rounded-xl bg-slate-50 p-4 space-y-2 text-sm">
+                      <div class="flex justify-between">
+                        <span class="text-slate-500">{{ formatPrice(property.pricePerNight || 0) }} × {{ bookingNights }} nuit(s)</span>
+                        <span class="font-semibold">{{ formatPrice(bookingTotal) }}</span>
+                      </div>
+                      <div class="flex justify-between border-t border-slate-200 pt-2 font-black text-base">
+                        <span>Total</span>
+                        <span class="text-sky-600">{{ formatPrice(bookingTotal) }}</span>
+                      </div>
+                    </div>
+
+                    <div v-if="bookingError" class="rounded-xl bg-red-50 border border-red-200 px-4 py-3 text-sm text-red-700">{{ bookingError }}</div>
+                    <div v-if="bookingSuccess" class="rounded-xl bg-emerald-50 border border-emerald-200 px-4 py-3 text-sm text-emerald-800 font-semibold">
+                      ✅ Demande envoyée ! Un agent confirmera sous 48h.
+                    </div>
+
+                    <button @click="submitBooking" :disabled="bookingSubmitting || bookingNights < 1"
+                      class="flex w-full items-center justify-center gap-2 rounded-xl bg-sky-500 py-4 font-bold text-white hover:bg-sky-600 disabled:cursor-not-allowed disabled:opacity-50 transition-colors text-lg shadow-lg shadow-sky-200">
+                      <span v-if="bookingSubmitting" class="h-5 w-5 animate-spin rounded-full border-2 border-white border-t-transparent" />
+                      <CalendarDays v-else class="h-5 w-5" />
+                      {{ bookingSubmitting ? 'Envoi en cours...' : 'Réserver maintenant' }}
+                    </button>
+                  </template>
+                </template>
+
               </div>
             </div>
+
+            <div class="rounded-2xl bg-white p-5 shadow-sm border border-slate-100 space-y-3 text-sm">
+              <div class="flex justify-between"><span class="text-slate-500">Ville</span><span class="font-semibold">{{ property.city }}</span></div>
+              <div class="flex justify-between"><span class="text-slate-500">Type</span><span class="font-semibold capitalize">{{ property.type || 'Villa' }}</span></div>
+              <div class="flex justify-between"><span class="text-slate-500">Référence</span><span class="font-mono">#{{ property.id }}</span></div>
+              <div class="flex justify-between items-center">
+                <span class="text-slate-500">Disponibilité</span>
+                <span class="rounded-full px-2.5 py-1 text-xs font-bold" :class="statusClasses[property.status]">{{ statusLabels[property.status] }}</span>
+              </div>
+            </div>
+
           </div>
         </div>
       </div>
-    </section>
-
-    <section class="grid gap-6 lg:grid-cols-[1.2fr_0.8fr]">
-      <div class="space-y-6">
-        <article class="glass-card rounded-[2rem] p-6">
-          <h3 class="text-lg font-bold text-slate-950">Description</h3>
-          <p class="mt-4 leading-8 text-slate-600">{{ property.description }}</p>
-        </article>
-
-        <article class="glass-card rounded-[2rem] p-6">
-          <h3 class="text-lg font-bold text-slate-950">Équipements et options</h3>
-          <div class="mt-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-            <div v-for="option in propertyOptions" :key="option.id" class="flex items-center gap-3 rounded-2xl bg-slate-50 p-4">
-              <component :is="iconMap[option.icon] || Wifi" class="h-5 w-5 text-sky-600" />
-              <div>
-                <p class="font-semibold text-slate-950">{{ option.name }}</p>
-                <p class="text-xs text-slate-500">{{ option.description }}</p>
-              </div>
-            </div>
-          </div>
-        </article>
-
-        <article class="glass-card rounded-[2rem] overflow-hidden">
-          <div class="border-b border-slate-200 p-6">
-            <h3 class="flex items-center gap-2 text-lg font-bold text-slate-950">
-              <CalendarDays class="h-5 w-5 text-sky-600" />
-              Historique des réservations
-            </h3>
-            <p class="mt-1 text-sm text-slate-500">{{ propertyReservations.length }} réservation(s) pour ce bien</p>
-          </div>
-          <div class="p-6">
-            <div v-if="propertyReservations.length === 0" class="py-8 text-center text-slate-400">
-              Aucune réservation pour ce bien
-            </div>
-            <div v-else class="space-y-3">
-              <div v-for="reservation in propertyReservations" :key="reservation.id" class="flex flex-col gap-3 rounded-2xl border border-slate-200 bg-white p-4 lg:flex-row lg:items-center lg:justify-between">
-                <div>
-                  <p class="font-bold text-slate-950">{{ getClientName(reservation.clientId) }}</p>
-                  <p class="text-sm text-slate-500">{{ formatDate(reservation.startDate) }} - {{ formatDate(reservation.endDate) }}</p>
-                </div>
-                <div class="flex items-center gap-4">
-                  <span class="font-bold text-slate-950">{{ formatPrice(reservation.totalPrice) }}</span>
-                  <span :class="reservationStatusClasses[reservation.status]">
-                    <component :is="reservationIcons[reservation.status]" class="mr-1.5 h-3.5 w-3.5" />
-                    {{ reservationLabels[reservation.status] }}
-                  </span>
-                </div>
-              </div>
-            </div>
-          </div>
-        </article>
-      </div>
-
-      <div class="space-y-6">
-        <article class="glass-card rounded-[2rem] p-6">
-          <h3 class="text-lg font-bold text-slate-950">Statistiques</h3>
-          <div class="mt-4 space-y-4">
-            <div v-for="stat in sideStats" :key="stat.label" class="flex items-center justify-between border-b border-slate-100 py-3 last:border-0">
-              <span class="text-slate-500">{{ stat.label }}</span>
-              <span class="font-bold" :class="stat.color || 'text-slate-950'">{{ stat.value }}</span>
-            </div>
-          </div>
-        </article>
-
-        <article class="rounded-[2rem] bg-slate-950 p-6 text-white shadow-[0_24px_60px_rgba(15,23,42,0.2)]">
-          <p class="text-sm text-white/65">Besoin d’un conseil ?</p>
-          <h3 class="mt-2 text-2xl font-black">Une équipe vous accompagne pour réserver ce bien.</h3>
-          <p class="mt-4 text-sm leading-7 text-white/75">Les photos, la disponibilité et les informations utiles sont centralisées pour faciliter la décision.</p>
-        </article>
-      </div>
-    </section>
+    </div>
   </div>
 </template>
+
+<style scoped>
+.fade-slide-enter-active, .fade-slide-leave-active {
+  transition: opacity 0.7s ease, transform 0.7s ease;
+}
+.fade-slide-enter-from { opacity: 0; transform: scale(1.03); }
+.fade-slide-leave-to   { opacity: 0; transform: scale(0.97); }
+</style>

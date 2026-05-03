@@ -12,6 +12,11 @@ return Application::configure(basePath: dirname(__DIR__))
         health: '/up',
     )
     ->withMiddleware(function (Middleware $middleware): void {
+        // EnsureFrontendRequestsAreStateful retiré : inutile pour une API token-based
+        // et provoque des erreurs CSRF token mismatch sur les routes /api/*
+
+        $middleware->trustProxies(at: '*');
+
         $middleware->alias([
             'auth.token' => \App\Http\Middleware\AuthenticateApiToken::class,
         ]);

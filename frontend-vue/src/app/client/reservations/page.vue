@@ -1,147 +1,251 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue'
-import { Calendar, Home, Search, Filter, Eye, Clock, CheckCircle, XCircle, Ban } from 'lucide-vue-next'
+import { useRouter } from 'vue-router'
+import {
+  Calendar, Home, Search, Filter, Eye, Clock,
+  CheckCircle, XCircle, Ban, MapPin, MessageSquare, Plus
+} from 'lucide-vue-next'
 import DashboardHeader from '@/components/DashboardHeader.vue'
 import { getList } from '@/lib/api'
-import { getStoredUser } from '@/lib/session'
 
-const statusFilter = ref<'all' | 'en_attente' | 'confirmee' | 'refusee' | 'annulee'>('all')
-const searchQuery = ref('')
+const router      = useRouter()
 const reservations = ref<any[]>([])
-const currentUser = computed(() => getStoredUser() as { email?: string } | null)
+const loading      = ref(true)
+const statusFilter = ref('all')
+const searchQuery  = ref('')
 
-const clientReservations = computed(() =>
-  reservations.value.filter(reservation => reservation.client?.email === currentUser.value?.email),
+// Compteurs réactifs
+const total     = computed(() => reservations.value.length)
+const pending   = computed(() => reservations.value.filter(r => r.status === 'en_attente').length)
+const confirmed = computed(() => reservations.value.filter(r => r.status === 'confirmee').length)
+const refused   = computed(() => reservations.value.filter(r => r.status === 'refusee').length)
+
+const filtered = computed(() =>
+  reservations.value.filter(r => {
+    const matchStatus = statusFilter.value === 'all' || r.status === statusFilter.value
+    const matchSearch = !searchQuery.value
+      || r.property?.title?.toLowerCase().includes(searchQuery.value.toLowerCase())
+      || r.property?.city?.toLowerCase().includes(searchQuery.value.toLowerCase())
+    return matchStatus && matchSearch
+  })
 )
 
-const filteredReservations = computed(() => clientReservations.value.filter((reservation) => {
-  const matchesStatus = statusFilter.value === 'all' || reservation.status === statusFilter.value
-  const matchesSearch = !searchQuery.value
-    || reservation.property?.title?.toLowerCase().includes(searchQuery.value.toLowerCase())
-    || reservation.property?.city?.toLowerCase().includes(searchQuery.value.toLowerCase())
-
-  return matchesStatus && matchesSearch
-}))
-
-const statusColors = {
-  en_attente: 'bg-yellow-100 text-yellow-800',
-  confirmee: 'bg-green-100 text-green-800',
-  refusee: 'bg-red-100 text-red-800',
-  annulee: 'bg-gray-100 text-gray-800',
+const statusCls: Record<string, string> = {
+  en_attente: 'bg-amber-100 text-amber-800 border border-amber-200',
+  confirmee:  'bg-emerald-100 text-emerald-800 border border-emerald-200',
+  refusee:    'bg-red-100 text-red-800 border border-red-200',
+  annulee:    'bg-slate-100 text-slate-600 border border-slate-200',
 }
-
-const statusLabels = {
+const statusLbl: Record<string, string> = {
   en_attente: 'En attente',
-  confirmee: 'Confirmee',
-  refusee: 'Refusee',
-  annulee: 'Annulee',
+  confirmee:  'Confirmée ✓',
+  refusee:    'Refusée',
+  annulee:    'Annulée',
 }
-
-const statusIcons = {
+const statusIcon: Record<string, any> = {
   en_attente: Clock,
-  confirmee: CheckCircle,
-  refusee: XCircle,
-  annulee: Ban,
+  confirmee:  CheckCircle,
+  refusee:    XCircle,
+  annulee:    Ban,
 }
 
-const getReservationStatusClass = (status: string) => statusColors[status as keyof typeof statusColors] || statusColors.en_attente
-const getReservationStatusIcon = (status: string) => statusIcons[status as keyof typeof statusIcons] || Clock
-const getReservationStatusLabel = (status: string) => statusLabels[status as keyof typeof statusLabels] || status
+const formatDate = (d: string) =>
+  new Date(d).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short', year: 'numeric' })
+
+const nights = (r: any) => {
+  const s = new Date(r.start_date ?? r.startDate)
+  const e = new Date(r.end_date   ?? r.endDate)
+  return Math.max(0, Math.floor((e.getTime() - s.getTime()) / 86400000))
+}
 
 onMounted(async () => {
-  reservations.value = await getList('/reservations')
+  try {
+    reservations.value = await getList('/reservations')
+  } catch {
+    reservations.value = []
+  } finally {
+    loading.value = false
+  }
 })
 </script>
 
 <template>
-  <DashboardHeader title="Mes reservations" subtitle="Consultez et suivez vos demandes de reservation" />
+  <DashboardHeader
+    title="Mes réservations"
+    subtitle="Consultez et suivez toutes vos demandes de réservation"
+  />
 
-  <main class="flex-1 overflow-auto p-6">
+  <main class="flex-1 overflow-auto bg-slate-50 p-6">
+
+    <!-- Compteurs -->
     <div class="mb-6 grid grid-cols-2 gap-4 lg:grid-cols-4">
-      <article class="rounded-xl border border-border bg-card p-4">
+      <div class="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
         <div class="flex items-center gap-3">
-          <div class="flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10"><Calendar class="h-5 w-5 text-primary" /></div>
-          <div><p class="text-xl font-bold">{{ clientReservations.length }}</p><p class="text-xs text-muted-foreground">Total</p></div>
+          <div class="flex h-11 w-11 items-center justify-center rounded-xl bg-sky-50">
+            <Calendar class="h-5 w-5 text-sky-600" />
+          </div>
+          <div>
+            <p class="text-2xl font-black text-slate-950">{{ total }}</p>
+            <p class="text-xs text-slate-500">Total</p>
+          </div>
         </div>
-      </article>
-      <article class="rounded-xl border border-border bg-card p-4">
+      </div>
+      <div class="rounded-2xl border border-amber-100 bg-amber-50 p-4 shadow-sm">
         <div class="flex items-center gap-3">
-          <div class="flex h-10 w-10 items-center justify-center rounded-lg bg-yellow-100"><Clock class="h-5 w-5 text-yellow-600" /></div>
-          <div><p class="text-xl font-bold">{{ clientReservations.filter(r => r.status === 'en_attente').length }}</p><p class="text-xs text-muted-foreground">En attente</p></div>
+          <div class="flex h-11 w-11 items-center justify-center rounded-xl bg-amber-100">
+            <Clock class="h-5 w-5 text-amber-600" />
+          </div>
+          <div>
+            <p class="text-2xl font-black text-amber-700">{{ pending }}</p>
+            <p class="text-xs text-amber-600">En attente</p>
+          </div>
         </div>
-      </article>
-      <article class="rounded-xl border border-border bg-card p-4">
+      </div>
+      <div class="rounded-2xl border border-emerald-100 bg-emerald-50 p-4 shadow-sm">
         <div class="flex items-center gap-3">
-          <div class="flex h-10 w-10 items-center justify-center rounded-lg bg-green-100"><CheckCircle class="h-5 w-5 text-green-600" /></div>
-          <div><p class="text-xl font-bold">{{ clientReservations.filter(r => r.status === 'confirmee').length }}</p><p class="text-xs text-muted-foreground">Confirmees</p></div>
+          <div class="flex h-11 w-11 items-center justify-center rounded-xl bg-emerald-100">
+            <CheckCircle class="h-5 w-5 text-emerald-600" />
+          </div>
+          <div>
+            <p class="text-2xl font-black text-emerald-700">{{ confirmed }}</p>
+            <p class="text-xs text-emerald-600">Confirmées</p>
+          </div>
         </div>
-      </article>
-      <article class="rounded-xl border border-border bg-card p-4">
+      </div>
+      <div class="rounded-2xl border border-red-100 bg-red-50 p-4 shadow-sm">
         <div class="flex items-center gap-3">
-          <div class="flex h-10 w-10 items-center justify-center rounded-lg bg-red-100"><XCircle class="h-5 w-5 text-red-600" /></div>
-          <div><p class="text-xl font-bold">{{ clientReservations.filter(r => r.status === 'refusee').length }}</p><p class="text-xs text-muted-foreground">Refusees</p></div>
-        </div>
-      </article>
-    </div>
-
-    <div class="mb-6 rounded-xl border border-border bg-card p-4">
-      <div class="flex flex-col gap-4 sm:flex-row">
-        <div class="relative flex-1">
-          <Search class="absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-muted-foreground" />
-          <input v-model="searchQuery" type="text" placeholder="Rechercher par bien ou ville..." class="w-full rounded-lg border border-input bg-background py-2.5 pl-10 pr-4" />
-        </div>
-        <div class="flex items-center gap-2">
-          <Filter class="h-5 w-5 text-muted-foreground" />
-          <select v-model="statusFilter" class="rounded-lg border border-input bg-background px-4 py-2.5">
-            <option value="all">Tous les statuts</option>
-            <option value="en_attente">En attente</option>
-            <option value="confirmee">Confirmees</option>
-            <option value="refusee">Refusees</option>
-            <option value="annulee">Annulees</option>
-          </select>
+          <div class="flex h-11 w-11 items-center justify-center rounded-xl bg-red-100">
+            <XCircle class="h-5 w-5 text-red-600" />
+          </div>
+          <div>
+            <p class="text-2xl font-black text-red-700">{{ refused }}</p>
+            <p class="text-xs text-red-600">Refusées</p>
+          </div>
         </div>
       </div>
     </div>
 
-    <div v-if="filteredReservations.length > 0" class="space-y-4">
-      <div v-for="reservation in filteredReservations" :key="reservation.id" class="rounded-xl border border-border bg-card p-5">
-        <div class="flex flex-col justify-between gap-4 lg:flex-row lg:items-center">
-          <div class="flex items-start gap-4">
-            <div class="flex h-14 w-14 flex-shrink-0 items-center justify-center rounded-lg bg-muted">
-              <Home class="h-7 w-7 text-muted-foreground" />
-            </div>
-            <div>
-              <h3 class="mb-1 font-semibold">{{ reservation.property?.title }}</h3>
-              <p class="mb-2 text-sm text-muted-foreground">{{ reservation.property?.city }}</p>
-              <div class="flex flex-wrap items-center gap-3 text-sm">
-                <span class="flex items-center gap-1 text-muted-foreground">
-                  <Calendar class="h-4 w-4" />{{ new Date(reservation.start_date || reservation.startDate).toLocaleDateString('fr-FR') }} - {{ new Date(reservation.end_date || reservation.endDate).toLocaleDateString('fr-FR') }}
-                </span>
-                <span class="font-medium">{{ Number(reservation.total_price || reservation.totalPrice || 0).toLocaleString() }} FCFA</span>
+    <!-- Filtres -->
+    <div class="mb-5 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm flex flex-col gap-3 sm:flex-row">
+      <div class="relative flex-1">
+        <Search class="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+        <input v-model="searchQuery" placeholder="Rechercher par bien ou ville..."
+          class="w-full rounded-xl border border-slate-200 bg-slate-50 py-2.5 pl-10 pr-4 text-sm focus:border-sky-500 focus:outline-none focus:ring-2 focus:ring-sky-500/20" />
+      </div>
+      <div class="flex items-center gap-2">
+        <Filter class="h-4 w-4 text-slate-400" />
+        <select v-model="statusFilter"
+          class="rounded-xl border border-slate-200 bg-slate-50 px-4 py-2.5 text-sm focus:outline-none">
+          <option value="all">Tous les statuts</option>
+          <option value="en_attente">En attente</option>
+          <option value="confirmee">Confirmées</option>
+          <option value="refusee">Refusées</option>
+          <option value="annulee">Annulées</option>
+        </select>
+      </div>
+    </div>
+
+    <!-- Loader -->
+    <div v-if="loading" class="space-y-3">
+      <div v-for="i in 3" :key="i" class="h-28 animate-pulse rounded-2xl bg-slate-200" />
+    </div>
+
+    <!-- Liste -->
+    <div v-else-if="filtered.length > 0" class="space-y-4">
+      <div
+        v-for="r in filtered"
+        :key="r.id"
+        class="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm hover:shadow-md transition-shadow"
+      >
+        <!-- Bandeau statut coloré en haut -->
+        <div class="h-1.5 w-full"
+          :class="{
+            'bg-amber-400':  r.status === 'en_attente',
+            'bg-emerald-500': r.status === 'confirmee',
+            'bg-red-500':    r.status === 'refusee',
+            'bg-slate-300':  r.status === 'annulee',
+          }" />
+
+        <div class="p-5">
+          <div class="flex flex-col gap-4 lg:flex-row lg:items-center">
+
+            <!-- Image + info bien -->
+            <div class="flex items-start gap-4 flex-1 min-w-0">
+              <div class="relative h-16 w-20 flex-shrink-0 overflow-hidden rounded-xl bg-slate-100">
+                <img
+                  v-if="r.property?.images?.[0]"
+                  :src="r.property.images[0]"
+                  class="h-full w-full object-cover"
+                  :alt="r.property?.title"
+                />
+                <Home v-else class="m-auto mt-4 h-8 w-8 text-slate-400" />
+              </div>
+              <div class="min-w-0">
+                <h3 class="font-bold text-slate-950 truncate">
+                  {{ r.property?.title ?? 'Villa #' + r.id }}
+                </h3>
+                <p class="flex items-center gap-1 text-xs text-slate-500 mt-0.5">
+                  <MapPin class="h-3 w-3" />{{ r.property?.city ?? '—' }}
+                </p>
+                <p class="mt-1 text-sm text-slate-600">
+                  📅 {{ formatDate(r.start_date ?? r.startDate) }}
+                  → {{ formatDate(r.end_date ?? r.endDate) }}
+                  <span class="ml-2 text-slate-400">({{ nights(r) }} nuit(s))</span>
+                </p>
+                <p class="mt-0.5 text-sm font-semibold text-sky-600">
+                  {{ Number(r.total_price ?? r.totalPrice ?? 0).toLocaleString('fr-FR') }} FCFA
+                </p>
               </div>
             </div>
+
+            <!-- Statut + actions -->
+            <div class="flex flex-wrap items-center gap-2 shrink-0">
+              <span class="inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-bold"
+                :class="statusCls[r.status] ?? 'bg-slate-100 text-slate-600'">
+                <component :is="statusIcon[r.status] ?? Clock" class="h-3.5 w-3.5" />
+                {{ statusLbl[r.status] ?? r.status }}
+              </span>
+
+              <button
+                @click="router.push(`/client/reservations/${r.id}`)"
+                class="inline-flex items-center gap-1.5 rounded-xl border border-slate-200 px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-50 transition-colors"
+              >
+                <Eye class="h-3.5 w-3.5" />Voir
+              </button>
+
+              <!-- Faire réclamation si confirmée -->
+              <button
+                v-if="r.status === 'confirmee'"
+                @click="router.push(`/client/reclamations/nouvelle?reservation=${r.id}`)"
+                class="inline-flex items-center gap-1.5 rounded-xl bg-orange-500 px-3 py-1.5 text-xs font-semibold text-white hover:bg-orange-600 transition-colors"
+              >
+                <MessageSquare class="h-3.5 w-3.5" />Réclamation
+              </button>
+            </div>
           </div>
 
-          <div class="flex items-center gap-3">
-            <span class="inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-sm font-medium" :class="getReservationStatusClass(reservation.status)">
-              <component :is="getReservationStatusIcon(reservation.status)" class="h-4 w-4" />{{ getReservationStatusLabel(reservation.status) }}
+          <!-- Commentaire agent -->
+          <div v-if="r.agent_comment || r.agentComment || r.commentaire_agent"
+            class="mt-4 border-t border-slate-100 pt-3 flex items-start gap-2">
+            <span class="text-xs font-bold text-slate-500">Note de l'agent :</span>
+            <span class="text-xs text-slate-600">
+              {{ r.agent_comment ?? r.agentComment ?? r.commentaire_agent }}
             </span>
-            <RouterLink :to="`/client/reservations/${reservation.id}`" class="inline-flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground">
-              <Eye class="h-4 w-4" />Details
-            </RouterLink>
           </div>
-        </div>
-        <div v-if="reservation.agent_comment || reservation.agentComment" class="mt-4 border-t border-border pt-4 text-sm text-muted-foreground">
-          <span class="font-medium text-foreground">Commentaire de l'agent :</span> {{ reservation.agent_comment || reservation.agentComment }}
         </div>
       </div>
     </div>
 
-    <div v-else class="rounded-xl border border-border bg-card py-16 text-center">
-      <Calendar class="mx-auto mb-4 h-12 w-12 text-muted-foreground" />
-      <h3 class="mb-2 text-lg font-semibold">Aucune reservation trouvee</h3>
-      <p class="mb-4 text-muted-foreground">Vous n'avez pas encore de reservation</p>
-      <RouterLink to="/client/recherche" class="inline-flex items-center gap-2 rounded-lg bg-primary px-4 py-2 font-medium text-primary-foreground">Rechercher un bien</RouterLink>
+    <!-- Vide -->
+    <div v-else class="rounded-2xl border border-dashed border-slate-300 bg-white py-20 text-center">
+      <Calendar class="mx-auto mb-4 h-14 w-14 text-slate-300" />
+      <h3 class="mb-1 text-lg font-bold text-slate-700">Aucune réservation</h3>
+      <p class="mb-5 text-sm text-slate-400">Vous n'avez pas encore effectué de réservation</p>
+      <RouterLink to="/biens"
+        class="inline-flex items-center gap-2 rounded-xl bg-sky-500 px-5 py-2.5 text-sm font-bold text-white hover:bg-sky-600 transition-colors">
+        <Plus class="h-4 w-4" />Réserver un bien
+      </RouterLink>
     </div>
+
   </main>
 </template>

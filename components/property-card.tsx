@@ -11,13 +11,13 @@ interface PropertyCardProps {
 export function PropertyCard({ property, showStatus = false }: PropertyCardProps) {
   const statusColors = {
     disponible: "bg-green-100 text-green-800",
-    loue: "bg-blue-100 text-blue-800",
+    reserve: "bg-blue-100 text-blue-800",
     maintenance: "bg-orange-100 text-orange-800",
   }
 
   const statusLabels = {
     disponible: "Disponible",
-    loue: "Loue",
+    reserve: "Reserve",
     maintenance: "En maintenance",
   }
 
@@ -37,7 +37,7 @@ export function PropertyCard({ property, showStatus = false }: PropertyCardProps
             </span>
           )}
           <div className="absolute bottom-3 left-3 px-3 py-1 bg-primary text-primary-foreground rounded-lg font-semibold">
-            {property.price.toLocaleString()} EUR/mois
+            {property.pricePerNight.toLocaleString()} FCFA / nuit
           </div>
         </div>
 

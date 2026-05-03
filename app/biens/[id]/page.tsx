@@ -2,13 +2,14 @@ import Image from "next/image"
 import Link from "next/link"
 import { notFound } from "next/navigation"
 import { 
-  MapPin, Bed, Bath, Maximize, Calendar, ArrowLeft, 
+  MapPin, Bed, Bath, Maximize, ArrowLeft, 
   Wifi, Waves, Car, Snowflake, Trees, Sun, ArrowUp, PawPrint,
   Check
 } from "lucide-react"
 import { PublicHeader } from "@/components/public-header"
 import { PublicFooter } from "@/components/public-footer"
-import { mockProperties } from "@/lib/mock-data"
+import { ReservationButton } from "@/components/reservation-button"
+import { getProperty } from "@/lib/backend-api"
 
 const iconMap: Record<string, React.ElementType> = {
   wifi: Wifi,
@@ -27,11 +28,13 @@ interface PropertyDetailPageProps {
 
 export default async function PropertyDetailPage({ params }: PropertyDetailPageProps) {
   const { id } = await params
-  const property = mockProperties.find(p => p.id === id)
+  const property = await getProperty(id)
 
   if (!property) {
     notFound()
   }
+
+  const rooms = Math.max(1, property.bedrooms + 1)
 
   return (
     <div className="min-h-screen flex flex-col">
@@ -39,7 +42,6 @@ export default async function PropertyDetailPage({ params }: PropertyDetailPageP
 
       <main className="flex-1 py-8">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          {/* Back Link */}
           <Link
             href="/biens"
             className="inline-flex items-center gap-2 text-muted-foreground hover:text-foreground transition-colors mb-6"
@@ -49,9 +51,7 @@ export default async function PropertyDetailPage({ params }: PropertyDetailPageP
           </Link>
 
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-            {/* Main Content */}
             <div className="lg:col-span-2 space-y-6">
-              {/* Image */}
               <div className="relative h-64 md:h-96 rounded-xl overflow-hidden">
                 <Image
                   src={property.images[0] || "/placeholder.svg"}
@@ -62,24 +62,25 @@ export default async function PropertyDetailPage({ params }: PropertyDetailPageP
                 <div className={`absolute top-4 right-4 px-3 py-1.5 rounded-full text-sm font-medium ${
                   property.status === "disponible" 
                     ? "bg-green-100 text-green-800" 
-                    : property.status === "loue" 
+                    : property.status === "reserve" 
                     ? "bg-blue-100 text-blue-800"
                     : "bg-orange-100 text-orange-800"
                 }`}>
-                  {property.status === "disponible" ? "Disponible" : property.status === "loue" ? "Loue" : "En maintenance"}
+                  {property.status === "disponible" ? "Disponible" : property.status === "reserve" ? "Reserve" : "En maintenance"}
                 </div>
               </div>
 
-              {/* Title and Location */}
               <div>
                 <h1 className="text-2xl lg:text-3xl font-bold text-foreground mb-2">{property.title}</h1>
                 <div className="flex items-center gap-2 text-muted-foreground">
                   <MapPin className="h-5 w-5" />
-                  <span>{property.address}, {property.postalCode} {property.city}</span>
+                  <span>
+                    {property.address}
+                    {property.postalCode ? `, ${property.postalCode}` : ""} {property.city}
+                  </span>
                 </div>
               </div>
 
-              {/* Key Features */}
               <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                 <div className="bg-card rounded-lg border border-border p-4 text-center">
                   <Maximize className="h-6 w-6 mx-auto mb-2 text-primary" />
@@ -87,7 +88,7 @@ export default async function PropertyDetailPage({ params }: PropertyDetailPageP
                   <div className="text-sm text-muted-foreground">Surface</div>
                 </div>
                 <div className="bg-card rounded-lg border border-border p-4 text-center">
-                  <div className="text-lg font-semibold text-foreground mb-2">{property.rooms}</div>
+                  <div className="text-lg font-semibold text-foreground mb-2">{rooms}</div>
                   <div className="text-sm text-muted-foreground">Pieces</div>
                 </div>
                 <div className="bg-card rounded-lg border border-border p-4 text-center">
@@ -102,13 +103,11 @@ export default async function PropertyDetailPage({ params }: PropertyDetailPageP
                 </div>
               </div>
 
-              {/* Description */}
               <div className="bg-card rounded-xl border border-border p-6">
                 <h2 className="text-xl font-semibold text-foreground mb-4">Description</h2>
                 <p className="text-muted-foreground leading-relaxed">{property.description}</p>
               </div>
 
-              {/* Options */}
               {property.options.length > 0 && (
                 <div className="bg-card rounded-xl border border-border p-6">
                   <h2 className="text-xl font-semibold text-foreground mb-4">Equipements et options</h2>
@@ -134,25 +133,13 @@ export default async function PropertyDetailPage({ params }: PropertyDetailPageP
               <div className="bg-card rounded-xl border border-border p-6 sticky top-24">
                 <div className="text-center mb-6">
                   <div className="text-3xl font-bold text-primary">
-                    {property.price.toLocaleString()} EUR
+                    {property.pricePerNight.toLocaleString()} FCFA
                   </div>
-                  <div className="text-muted-foreground">par mois</div>
+                  <div className="text-muted-foreground">par nuit</div>
                 </div>
 
                 {property.status === "disponible" ? (
-                  <>
-                    <Link
-                      href={`/connexion?redirect=/client/reservations/nouvelle?bien=${property.id}`}
-                      className="w-full inline-flex items-center justify-center gap-2 px-6 py-3 bg-primary text-primary-foreground rounded-lg font-semibold hover:bg-primary/90 transition-colors mb-4"
-                    >
-                      <Calendar className="h-5 w-5" />
-                      Reserver ce bien
-                    </Link>
-
-                    <p className="text-sm text-muted-foreground text-center">
-                      Connectez-vous pour effectuer une reservation
-                    </p>
-                  </>
+                  <ReservationButton propertyId={property.id} />
                 ) : (
                   <div className="text-center py-4 bg-muted rounded-lg">
                     <p className="text-muted-foreground">
@@ -176,7 +163,7 @@ export default async function PropertyDetailPage({ params }: PropertyDetailPageP
                     </div>
                     <div className="flex justify-between">
                       <span className="text-muted-foreground">Code postal</span>
-                      <span className="text-foreground font-medium">{property.postalCode}</span>
+                      <span className="text-foreground font-medium">{property.postalCode ?? "-"}</span>
                     </div>
                   </div>
                 </div>

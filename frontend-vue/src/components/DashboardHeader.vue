@@ -1,17 +1,38 @@
 <script setup lang="ts">
-import { computed, ref } from 'vue'
+import { computed, onMounted, ref } from 'vue'
 import { Bell, Search } from 'lucide-vue-next'
+import { getNotificationSummary, type NotificationItem } from '@/lib/api'
+import { getStoredToken } from '@/lib/session'
 
 const props = defineProps<{ title?: string; subtitle?: string }>()
 const showNotifications = ref(false)
 
-const notifications = [
-  { id: 1, message: 'Nouvelle reservation recue', time: 'Il y a 5 min', unread: true },
-  { id: 2, message: 'Votre reclamation a ete traitee', time: 'Il y a 2h', unread: true },
-  { id: 3, message: 'Paiement confirme', time: 'Hier', unread: false },
-]
+const isLoading = ref(false)
+const notifications = ref<NotificationItem[]>([])
+const unreadCount = computed(() => notifications.value.filter((item) => item.unread).length)
 
-const unreadCount = computed(() => notifications.filter((item) => item.unread).length)
+const formatTime = (iso?: string | null) => {
+  if (!iso) return ''
+  const date = new Date(iso)
+  return Number.isNaN(date.getTime()) ? '' : date.toLocaleString('fr-FR')
+}
+
+onMounted(async () => {
+  if (!getStoredToken()) {
+    notifications.value = []
+    return
+  }
+
+  isLoading.value = true
+  try {
+    const summary = await getNotificationSummary()
+    notifications.value = summary.notifications || []
+  } catch {
+    notifications.value = []
+  } finally {
+    isLoading.value = false
+  }
+})
 </script>
 
 <template>
@@ -43,16 +64,19 @@ const unreadCount = computed(() => notifications.filter((item) => item.unread).l
               <h3 class="font-semibold text-foreground">Notifications</h3>
             </div>
             <div class="max-h-80 overflow-y-auto">
+              <div v-if="isLoading" class="px-4 py-6 text-sm text-muted-foreground">Chargement...</div>
+              <div v-else-if="notifications.length === 0" class="px-4 py-6 text-sm text-muted-foreground">Aucune notification</div>
               <div
+                v-else
                 v-for="notification in notifications"
-                :key="notification.id"
+                :key="`${notification.type}-${notification.id}`"
                 :class="[
                   'border-b border-border px-4 py-3 transition-colors hover:bg-muted/50 last:border-0',
                   notification.unread ? 'bg-muted/30' : '',
                 ]"
               >
                 <p class="text-sm text-foreground">{{ notification.message }}</p>
-                <p class="mt-1 text-xs text-muted-foreground">{{ notification.time }}</p>
+                <p class="mt-1 text-xs text-muted-foreground">{{ formatTime(notification.time) }}</p>
               </div>
             </div>
           </div>

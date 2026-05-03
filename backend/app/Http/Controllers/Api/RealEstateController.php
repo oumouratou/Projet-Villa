@@ -10,21 +10,47 @@ use App\Models\PropertyOption;
 use App\Models\Reservation;
 use App\Models\User;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Request;
 
 class RealEstateController extends Controller
 {
-    public function dashboardStats(): JsonResponse
+    private function currentRole(Request $request): string
     {
-        $totalReservations = Reservation::count();
-        $pendingReservations = Reservation::where('status', 'en_attente')->count();
+        return (string) ($request->user()?->role ?? '');
+    }
+
+    private function currentClientId(Request $request): ?int
+    {
+        $user = $request->user();
+        $clientId = $user?->client?->id;
+        return is_numeric($clientId) ? (int) $clientId : null;
+    }
+
+    public function dashboardStats(Request $request): JsonResponse
+    {
+        $user = $request->user();
+        $role = $this->currentRole($request);
+
+        $reservationsQuery = Reservation::query();
+        if ($role === 'client') {
+            $clientId = $this->currentClientId($request);
+            $reservationsQuery->where('client_id', $clientId ?? 0);
+        } elseif ($role === 'agent' && $user) {
+            $reservationsQuery->where(function ($query) use ($user) {
+                $query->where('agent_id', $user->id)->orWhereNull('agent_id');
+            });
+        }
+
+        $totalReservations = (clone $reservationsQuery)->count();
+        $pendingReservations = (clone $reservationsQuery)->where('status', 'en_attente')->count();
         $totalProperties = Property::count();
 
         $stats = [
             'totalProperties' => $totalProperties,
             'totalReservations' => $totalReservations,
             'pendingReservations' => $pendingReservations,
-            'totalClients' => Client::count(),
-            'totalRevenue' => (int) Reservation::where('status', 'confirmee')->sum('total_price'),
+            'totalClients' => $role === 'client' ? 1 : Client::count(),
+            'totalRevenue' => (int) (clone $reservationsQuery)->where('status', 'confirmee')->sum('total_price'),
             'occupancyRate' => $totalProperties > 0
                 ? round((Property::where('status', 'reserve')->count() / $totalProperties) * 100, 2)
                 : 0,
@@ -59,6 +85,11 @@ class RealEstateController extends Controller
 
     public function clients(): JsonResponse
     {
+        $role = (string) (request()->user()?->role ?? '');
+        if ($role === 'client') {
+            return response()->json(['message' => 'Accès refusé.'], 403);
+        }
+
         $data = Client::with(['agent:id,name,email,role,status'])
             ->orderByDesc('id')
             ->get();
@@ -68,6 +99,11 @@ class RealEstateController extends Controller
 
     public function clientShow(Client $client): JsonResponse
     {
+        $role = (string) (request()->user()?->role ?? '');
+        if ($role === 'client') {
+            return response()->json(['message' => 'Accès refusé.'], 403);
+        }
+
         return response()->json([
             'data' => $client->load([
                 'agent:id,name,email,role,status',
@@ -81,6 +117,11 @@ class RealEstateController extends Controller
 
     public function users(): JsonResponse
     {
+        $roleOfRequester = (string) (request()->user()?->role ?? '');
+        if ($roleOfRequester === 'client') {
+            return response()->json(['message' => 'Accès refusé.'], 403);
+        }
+
         $query = User::query()->select(['id', 'name', 'email', 'phone', 'role', 'status', 'created_at']);
 
         $role = request()->query('role');
@@ -93,22 +134,55 @@ class RealEstateController extends Controller
 
     public function userShow(User $user): JsonResponse
     {
+        $role = (string) (request()->user()?->role ?? '');
+        if ($role === 'client') {
+            return response()->json(['message' => 'Accès refusé.'], 403);
+        }
+
         return response()->json(['data' => $user]);
     }
 
-    public function reservations(): JsonResponse
+    public function reservations(Request $request): JsonResponse
     {
-        $data = Reservation::with([
+        $user = $request->user();
+        $role = $this->currentRole($request);
+
+        $query = Reservation::with([
             'property:id,title,city,price_per_night',
             'client:id,first_name,last_name,email,phone',
             'agent:id,name,email,role,status',
-        ])->orderByDesc('id')->get();
+        ])->orderByDesc('id');
+
+        if ($role === 'client') {
+            $clientId = $this->currentClientId($request);
+            $query->where('client_id', $clientId ?? 0);
+        } elseif ($role === 'agent' && $user) {
+            $query->where(function ($q) use ($user) {
+                $q->where('agent_id', $user->id)->orWhereNull('agent_id');
+            });
+        }
+
+        $data = $query->get();
 
         return response()->json(['data' => $data]);
     }
 
-    public function reservationShow(Reservation $reservation): JsonResponse
+    public function reservationShow(Request $request, Reservation $reservation): JsonResponse
     {
+        $user = $request->user();
+        $role = $this->currentRole($request);
+
+        if ($role === 'client') {
+            $clientId = $this->currentClientId($request);
+            if (! $clientId || (int) $reservation->client_id !== (int) $clientId) {
+                return response()->json(['message' => 'Accès refusé.'], 403);
+            }
+        } elseif ($role === 'agent' && $user) {
+            if ($reservation->agent_id !== null && (int) $reservation->agent_id !== (int) $user->id) {
+                return response()->json(['message' => 'Accès refusé.'], 403);
+            }
+        }
+
         return response()->json([
             'data' => $reservation->load([
                 'property:id,title,city,price_per_night',
@@ -119,20 +193,48 @@ class RealEstateController extends Controller
         ]);
     }
 
-    public function complaints(): JsonResponse
+    public function complaints(Request $request): JsonResponse
     {
-        $data = Complaint::with([
+        $user = $request->user();
+        $role = $this->currentRole($request);
+
+        $query = Complaint::with([
             'client:id,first_name,last_name,email',
             'reservation:id,property_id,start_date,end_date,status',
             'reservation.property:id,title,city',
             'agent:id,name,email,role,status',
-        ])->orderByDesc('id')->get();
+        ])->orderByDesc('id');
+
+        if ($role === 'client') {
+            $clientId = $this->currentClientId($request);
+            $query->where('client_id', $clientId ?? 0);
+        } elseif ($role === 'agent' && $user) {
+            $query->where(function ($q) use ($user) {
+                $q->where('agent_id', $user->id)->orWhereNull('agent_id');
+            });
+        }
+
+        $data = $query->get();
 
         return response()->json(['data' => $data]);
     }
 
-    public function complaintShow(Complaint $complaint): JsonResponse
+    public function complaintShow(Request $request, Complaint $complaint): JsonResponse
     {
+        $user = $request->user();
+        $role = $this->currentRole($request);
+
+        if ($role === 'client') {
+            $clientId = $this->currentClientId($request);
+            if (! $clientId || (int) $complaint->client_id !== (int) $clientId) {
+                return response()->json(['message' => 'Accès refusé.'], 403);
+            }
+        } elseif ($role === 'agent' && $user) {
+            if ($complaint->agent_id !== null && (int) $complaint->agent_id !== (int) $user->id) {
+                return response()->json(['message' => 'Accès refusé.'], 403);
+            }
+        }
+
         return response()->json([
             'data' => $complaint->load([
                 'client:id,first_name,last_name,email,phone',

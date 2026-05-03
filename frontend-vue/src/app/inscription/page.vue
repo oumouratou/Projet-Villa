@@ -1,8 +1,9 @@
-<script setup>
+<script setup lang="ts">
 import { ref, reactive } from 'vue'
 import { useRouter } from 'vue-router'
 import { Building2, Mail, Lock, Eye, EyeOff, User, Phone, ArrowRight, CheckCircle2 } from 'lucide-vue-next'
 import { registerUser } from '@/lib/api'
+import { setSession } from '@/lib/session'
 
 const router = useRouter()
 
@@ -10,12 +11,13 @@ const router = useRouter()
 const showPassword = ref(false)
 const showConfirmPassword = ref(false)
 const isLoading = ref(false)
-const errors = ref({})
+const errors = ref<Record<string, string>>({})
 
 const formData = reactive({
   firstName: "",
   lastName: "",
   email: "",
+  countryCode: "+225",
   phone: "",
   password: "",
   confirmPassword: "",
@@ -24,7 +26,7 @@ const formData = reactive({
 
 // Logique de validation
 const validate = () => {
-  const newErrors = {}
+  const newErrors: Record<string, string> = {}
 
   if (!formData.firstName) newErrors.firstName = "Le prénom est requis"
   if (!formData.lastName) newErrors.lastName = "Le nom est requis"
@@ -50,16 +52,38 @@ const handleSubmit = async () => {
   isLoading.value = true
 
   try {
-    await registerUser({
+    const fullPhone = formData.phone.trim()
+      ? `${formData.countryCode}${formData.phone.replace(/\s+/g, '')}`
+      : undefined
+
+    const result = await registerUser({
+      first_name: formData.firstName.trim(),
+      last_name: formData.lastName.trim(),
       name: `${formData.firstName} ${formData.lastName}`.trim(),
       email: formData.email,
-      phone: formData.phone,
+      phone: fullPhone,
       password: formData.password,
     })
 
-    router.push('/connexion')
+    const token = (result as any)?.token
+    const user = (result as any)?.user
+    if (token && user) {
+      setSession(token, user)
+      router.push('/client')
+    } else {
+      router.push('/connexion')
+    }
   } catch (err) {
-    errors.value = { submit: err instanceof Error ? err.message : "L'inscription a échoué" }
+    const message = err instanceof Error ? err.message : "L'inscription a échoué"
+    if (/already been taken|déjà utilisé|deja utilise/i.test(message)) {
+      errors.value = {
+        ...errors.value,
+        email: "Cet email est déjà utilisé.",
+        submit: "Cet email est déjà utilisé.",
+      }
+    } else {
+      errors.value = { ...errors.value, submit: message }
+    }
   }
 
   isLoading.value = false
@@ -148,10 +172,21 @@ const handleSubmit = async () => {
 
               <div class="space-y-1">
                 <label class="text-[10px] font-bold uppercase tracking-widest text-slate-400 ml-1">Téléphone (Optionnel)</label>
-                <div class="relative group">
-                  <Phone class="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-slate-400 group-focus-within:text-[#0070f3] transition-colors" />
-                  <input v-model="formData.phone" type="tel" placeholder="06 00 00 00 00"
-                    class="w-full pl-12 pr-4 py-3.5 bg-slate-50 border border-slate-200 rounded-2xl outline-none focus:ring-4 focus:ring-blue-50 focus:border-[#0070f3]" />
+                <div class="flex gap-2">
+                  <select v-model="formData.countryCode"
+                    class="w-28 px-3 py-3.5 bg-slate-50 border border-slate-200 rounded-2xl outline-none focus:ring-4 focus:ring-blue-50 focus:border-[#0070f3]">
+                    <option value="+225">+225 CI</option>
+                    <option value="+33">+33 FR</option>
+                    <option value="+221">+221 SN</option>
+                    <option value="+223">+223 ML</option>
+                    <option value="+226">+226 BF</option>
+                    <option value="+1">+1 US</option>
+                  </select>
+                  <div class="relative group flex-1">
+                    <Phone class="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-slate-400 group-focus-within:text-[#0070f3] transition-colors" />
+                    <input v-model="formData.phone" type="tel" placeholder="0700000000"
+                      class="w-full pl-12 pr-4 py-3.5 bg-slate-50 border border-slate-200 rounded-2xl outline-none focus:ring-4 focus:ring-blue-50 focus:border-[#0070f3]" />
+                  </div>
                 </div>
               </div>
 

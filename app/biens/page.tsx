@@ -1,215 +1,160 @@
 "use client"
 
-import { useState, useMemo } from "react"
-import { Search, SlidersHorizontal, X } from "lucide-react"
-import { PublicHeader } from "@/components/public-header"
-import { PublicFooter } from "@/components/public-footer"
-import { PropertyCard } from "@/components/property-card"
-import { mockProperties, mockOptions } from "@/lib/mock-data"
+import { useState } from "react"
+import Link from "next/link"
+import { useRouter, useSearchParams } from "next/navigation"
+import { Building2, Mail, Lock, Eye, EyeOff } from "lucide-react"
 
-export default function PropertiesPage() {
-  const [searchCity, setSearchCity] = useState("")
-  const [priceRange, setPriceRange] = useState<[number, number]>([0, 5000])
-  const [selectedOptions, setSelectedOptions] = useState<string[]>([])
-  const [showFilters, setShowFilters] = useState(false)
-  const [sortBy, setSortBy] = useState<"price-asc" | "price-desc" | "newest">("newest")
+export default function LoginPage() {
+  const router = useRouter()
+  const searchParams = useSearchParams()
+  const redirectUrl = searchParams.get("redirect")
 
-  const filteredProperties = useMemo(() => {
-    let result = mockProperties.filter(p => p.status === "disponible")
+  const [showPassword, setShowPassword] = useState(false)
+  const [isLoading, setIsLoading] = useState(false)
+  const [formData, setFormData] = useState({ email: "", password: "" })
+  const [error, setError] = useState("")
 
-    if (searchCity) {
-      result = result.filter(p =>
-        p.city.toLowerCase().includes(searchCity.toLowerCase()) ||
-        p.postalCode.includes(searchCity)
-      )
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    setError("")
+    setIsLoading(true)
+
+    await new Promise(resolve => setTimeout(resolve, 1000))
+
+    const fakeToken = "fake_token_" + Date.now()
+    const fakeUser = {
+      id: "client1",
+      name: "Sophie Leroy",
+      email: formData.email,
+      role: formData.email.includes("admin") ? "admin" : formData.email.includes("agent") ? "agent" : "client",
+      status: "actif",
+    }
+    localStorage.setItem("auth_token", fakeToken)
+    localStorage.setItem("auth_user", JSON.stringify(fakeUser))
+
+    if (redirectUrl) {
+      router.push(redirectUrl)
+    } else if (formData.email.includes("admin")) {
+      router.push("/admin")
+    } else if (formData.email.includes("agent")) {
+      router.push("/agent")
+    } else {
+      router.push("/client")
     }
 
-    result = result.filter(p => p.price >= priceRange[0] && p.price <= priceRange[1])
-
-    if (selectedOptions.length > 0) {
-      result = result.filter(p =>
-        selectedOptions.every(optId => p.options.some(opt => opt.id === optId))
-      )
-    }
-
-    switch (sortBy) {
-      case "price-asc":
-        result.sort((a, b) => a.price - b.price)
-        break
-      case "price-desc":
-        result.sort((a, b) => b.price - a.price)
-        break
-      case "newest":
-        result.sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime())
-        break
-    }
-
-    return result
-  }, [searchCity, priceRange, selectedOptions, sortBy])
-
-  const toggleOption = (optionId: string) => {
-    setSelectedOptions(prev =>
-      prev.includes(optionId)
-        ? prev.filter(id => id !== optionId)
-        : [...prev, optionId]
-    )
-  }
-
-  const clearFilters = () => {
-    setSearchCity("")
-    setPriceRange([0, 5000])
-    setSelectedOptions([])
-    setSortBy("newest")
+    setIsLoading(false)
   }
 
   return (
-    <div className="min-h-screen flex flex-col">
-      <PublicHeader />
+    <div className="min-h-screen flex">
+      <div className="flex-1 flex items-center justify-center p-8">
+        <div className="w-full max-w-md">
+          <Link href="/" className="inline-flex items-center gap-2 mb-8">
+            <Building2 className="h-8 w-8 text-primary" />
+            <span className="text-xl font-bold text-foreground">ImmoGestion</span>
+          </Link>
 
-      <main className="flex-1 py-8">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="mb-8">
-            <h1 className="text-3xl font-bold text-foreground mb-2">Nos biens disponibles</h1>
-            <p className="text-muted-foreground">
-              {filteredProperties.length} bien{filteredProperties.length > 1 ? "s" : ""} disponible{filteredProperties.length > 1 ? "s" : ""}
-            </p>
-          </div>
+          <h1 className="text-2xl font-bold text-foreground mb-2">Connexion</h1>
+          <p className="text-muted-foreground mb-8">
+            Connectez-vous pour acceder a votre espace
+          </p>
 
-          {/* Search and Filters */}
-          <div className="bg-card rounded-xl border border-border p-4 mb-8">
-            <div className="flex flex-col lg:flex-row gap-4">
-              <div className="flex-1 relative">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
+          {error && (
+            <div className="mb-6 p-4 bg-destructive/10 border border-destructive/20 rounded-lg text-destructive text-sm">
+              {error}
+            </div>
+          )}
+
+          <form onSubmit={handleSubmit} className="space-y-6">
+            <div>
+              <label htmlFor="email" className="block text-sm font-medium text-foreground mb-2">
+                Adresse email
+              </label>
+              <div className="relative">
+                <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
                 <input
-                  type="text"
-                  placeholder="Rechercher par ville ou code postal..."
-                  value={searchCity}
-                  onChange={(e) => setSearchCity(e.target.value)}
-                  className="w-full pl-10 pr-4 py-2.5 bg-background border border-input rounded-lg text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring"
+                  type="email"
+                  id="email"
+                  required
+                  value={formData.email}
+                  onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                  placeholder="votre@email.com"
+                  className="w-full pl-10 pr-4 py-3 bg-background border border-input rounded-lg text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring"
                 />
               </div>
+            </div>
 
-              <div className="flex gap-4">
-                <select
-                  value={sortBy}
-                  onChange={(e) => setSortBy(e.target.value as typeof sortBy)}
-                  className="px-4 py-2.5 bg-background border border-input rounded-lg text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
-                >
-                  <option value="newest">Plus recents</option>
-                  <option value="price-asc">Prix croissant</option>
-                  <option value="price-desc">Prix decroissant</option>
-                </select>
-
+            <div>
+              <label htmlFor="password" className="block text-sm font-medium text-foreground mb-2">
+                Mot de passe
+              </label>
+              <div className="relative">
+                <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
+                <input
+                  type={showPassword ? "text" : "password"}
+                  id="password"
+                  required
+                  value={formData.password}
+                  onChange={(e) => setFormData({ ...formData, password: e.target.value })}
+                  placeholder="Votre mot de passe"
+                  className="w-full pl-10 pr-12 py-3 bg-background border border-input rounded-lg text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring"
+                />
                 <button
-                  onClick={() => setShowFilters(!showFilters)}
-                  className={`inline-flex items-center gap-2 px-4 py-2.5 rounded-lg border transition-colors ${
-                    showFilters || selectedOptions.length > 0
-                      ? "bg-primary text-primary-foreground border-primary"
-                      : "bg-background border-input text-foreground hover:bg-muted"
-                  }`}
+                  type="button"
+                  onClick={() => setShowPassword(!showPassword)}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
                 >
-                  <SlidersHorizontal className="h-5 w-5" />
-                  Filtres
-                  {selectedOptions.length > 0 && (
-                    <span className="bg-primary-foreground text-primary px-1.5 py-0.5 rounded text-xs font-medium">
-                      {selectedOptions.length}
-                    </span>
-                  )}
+                  {showPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
                 </button>
               </div>
             </div>
 
-            {/* Extended Filters */}
-            {showFilters && (
-              <div className="mt-4 pt-4 border-t border-border">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  <div>
-                    <label className="block text-sm font-medium text-foreground mb-3">
-                      Budget: {priceRange[0]} EUR - {priceRange[1]} EUR/mois
-                    </label>
-                    <div className="flex gap-4">
-                      <input
-                        type="range"
-                        min="0"
-                        max="5000"
-                        step="100"
-                        value={priceRange[0]}
-                        onChange={(e) => setPriceRange([Number(e.target.value), priceRange[1]])}
-                        className="flex-1"
-                      />
-                      <input
-                        type="range"
-                        min="0"
-                        max="5000"
-                        step="100"
-                        value={priceRange[1]}
-                        onChange={(e) => setPriceRange([priceRange[0], Number(e.target.value)])}
-                        className="flex-1"
-                      />
-                    </div>
-                  </div>
+            <div className="flex items-center justify-between">
+              <label className="flex items-center gap-2">
+                <input type="checkbox" className="w-4 h-4 rounded border-input text-primary focus:ring-ring" />
+                <span className="text-sm text-muted-foreground">Se souvenir de moi</span>
+              </label>
+              <Link href="/mot-de-passe-oublie" className="text-sm text-primary hover:text-primary/80">
+                Mot de passe oublie ?
+              </Link>
+            </div>
 
-                  <div>
-                    <label className="block text-sm font-medium text-foreground mb-3">Options</label>
-                    <div className="flex flex-wrap gap-2">
-                      {mockOptions.map((option) => (
-                        <button
-                          key={option.id}
-                          onClick={() => toggleOption(option.id)}
-                          className={`px-3 py-1.5 rounded-lg text-sm transition-colors ${
-                            selectedOptions.includes(option.id)
-                              ? "bg-primary text-primary-foreground"
-                              : "bg-secondary text-secondary-foreground hover:bg-secondary/80"
-                          }`}
-                        >
-                          {option.name}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-                </div>
+            <button
+              type="submit"
+              disabled={isLoading}
+              className="w-full py-3 bg-primary text-primary-foreground rounded-lg font-semibold hover:bg-primary/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {isLoading ? "Connexion en cours..." : "Se connecter"}
+            </button>
+          </form>
 
-                <div className="mt-4 flex justify-end">
-                  <button
-                    onClick={clearFilters}
-                    className="inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors"
-                  >
-                    <X className="h-4 w-4" />
-                    Effacer les filtres
-                  </button>
-                </div>
-              </div>
-            )}
+          <p className="mt-8 text-center text-muted-foreground">
+            Pas encore de compte ?{" "}
+            <Link href="/inscription" className="text-primary hover:text-primary/80 font-medium">
+              Creer un compte
+            </Link>
+          </p>
+
+          <div className="mt-8 p-4 bg-muted rounded-lg">
+            <p className="text-sm text-muted-foreground text-center">
+              <strong>Demo :</strong> Utilisez un email contenant &quot;admin&quot;, &quot;agent&quot; ou autre pour acceder aux differents espaces.
+            </p>
           </div>
-
-          {/* Properties Grid */}
-          {filteredProperties.length > 0 ? (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {filteredProperties.map((property) => (
-                <PropertyCard key={property.id} property={property} />
-              ))}
-            </div>
-          ) : (
-            <div className="text-center py-16">
-              <div className="inline-flex items-center justify-center w-16 h-16 bg-muted rounded-full mb-4">
-                <Search className="h-8 w-8 text-muted-foreground" />
-              </div>
-              <h3 className="text-lg font-semibold text-foreground mb-2">Aucun bien trouve</h3>
-              <p className="text-muted-foreground mb-4">
-                Essayez de modifier vos criteres de recherche
-              </p>
-              <button
-                onClick={clearFilters}
-                className="text-primary hover:text-primary/80 font-medium"
-              >
-                Effacer tous les filtres
-              </button>
-            </div>
-          )}
         </div>
-      </main>
+      </div>
 
-      <PublicFooter />
+      <div className="hidden lg:block lg:w-1/2 bg-gradient-to-br from-sidebar to-sidebar/90 relative">
+        <div className="absolute inset-0 flex items-center justify-center p-12">
+          <div className="text-center text-sidebar-foreground">
+            <Building2 className="h-20 w-20 mx-auto mb-6 text-sidebar-primary" />
+            <h2 className="text-3xl font-bold mb-4">Bienvenue sur ImmoGestion</h2>
+            <p className="text-sidebar-foreground/80 max-w-md">
+              La plateforme complete pour gerer vos locations immobilieres. Simple, efficace et securisee.
+            </p>
+          </div>
+        </div>
+      </div>
     </div>
   )
 }

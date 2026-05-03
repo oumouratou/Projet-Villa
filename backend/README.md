@@ -56,3 +56,75 @@ If you discover a security vulnerability within Laravel, please send an e-mail t
 ## License
 
 The Laravel framework is open-sourced software licensed under the [MIT license](https://opensource.org/licenses/MIT).
+
+## API Endpoints
+
+### Authentication
+
+*   `POST /api/register`: Register a new user.
+*   `POST /api/login`: Login a user and get a token.
+*   `POST /api/logout`: Logout a user and invalidate the token.
+
+### Users
+
+*   `GET /api/users`: Get all users.
+*   `POST /api/users`: Create a new user.
+*   `GET /api/users/{id}`: Get a specific user.
+*   `PUT /api/users/{id}`: Update a specific user.
+*   `DELETE /api/users/{id}`: Delete a specific user.
+
+### Roles
+
+*   `GET /api/roles`: Get all roles.
+*   `POST /api/roles`: Create a new role.
+*   `GET /api/roles/{id}`: Get a specific role.
+*   `PUT /api/roles/{id}`: Update a specific role.
+*   `DELETE /api/roles/{id}`: Delete a specific role.
+
+### Permissions
+
+*   `GET /api/permissions`: Get all permissions.
+*   `POST /api/permissions`: Create a new permission.
+*   `GET /api/permissions/{id}`: Get a specific permission.
+*   `PUT /api/permissions/{id}`: Update a specific permission.
+*   `DELETE /api/permissions/{id}`: Delete a specific permission.
+
+### Clients
+
+*   `GET /api/clients`: Get all clients.
+*   `POST /api/clients`: Create a new client.
+*   `GET /api/clients/{id}`: Get a specific client.
+*   `PUT /api/clients/{id}`: Update a specific client.
+*   `DELETE /api/clients/{id}`: Delete a specific client.
+
+### Bien Immobiliers
+
+*   `GET /api/bien-immobiliers`: Get all properties.
+*   `POST /api/bien-immobiliers`: Create a new property.
+*   `GET /api/bien-immobiliers/{id}`: Get a specific property.
+*   `PUT /api/bien-immobiliers/{id}`: Update a specific property.
+*   `DELETE /api/bien-immobiliers/{id}`: Delete a specific property.
+
+### Options
+
+*   `GET /api/options`: Get all options.
+*   `POST /api/options`: Create a new option.
+*   `GET /api/options/{id}`: Get a specific option.
+*   `PUT /api/options/{id}`: Update a specific option.
+*   `DELETE /api/options/{id}`: Delete a specific option.
+
+### Reservations
+
+*   `GET /api/reservations`: Get all reservations.
+*   `POST /api/reservations`: Create a new reservation.
+*   `GET /api/reservations/{id}`: Get a specific reservation.
+*   `PUT /api/reservations/{id}`: Update a specific reservation.
+*   `DELETE /api/reservations/{id}`: Delete a specific reservation.
+
+### Reclamations
+
+*   `GET /api/reclamations`: Get all complaints.
+*   `POST /api/reclamations`: Create a new complaint.
+*   `GET /api/reclamations/{id}`: Get a specific complaint.
+*   `PUT /api/reclamations/{id}`: Update a specific complaint.
+*   `DELETE /api/reclamations/{id}`: Delete a specific complaint.

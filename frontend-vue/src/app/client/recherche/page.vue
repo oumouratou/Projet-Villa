@@ -3,6 +3,7 @@ import { computed, onMounted, ref } from 'vue'
 import { Search, SlidersHorizontal, MapPin, Bed, Bath, Maximize, X, Calendar } from 'lucide-vue-next'
 import DashboardHeader from '@/components/DashboardHeader.vue'
 import { getList } from '@/lib/api'
+import { getStoredToken } from '@/lib/session'
 
 const searchCity = ref('')
 const priceMin = ref('')
@@ -12,6 +13,7 @@ const selectedOptions = ref<string[]>([])
 const showFilters = ref(false)
 const properties = ref<any[]>([])
 const options = ref<any[]>([])
+const isLoggedIn = computed(() => Boolean(getStoredToken()))
 
 const availableProperties = computed(() => properties.value.filter((p) => p.status === 'disponible'))
 
@@ -47,6 +49,15 @@ const clearFilters = () => {
 }
 
 const hasActiveFilters = computed(() => !!searchCity.value || !!priceMin.value || !!priceMax.value || !!surfaceMin.value || selectedOptions.value.length > 0)
+
+const getReservationTarget = (propertyId: string | number) => {
+  const target = `/client/reservations/nouvelle?bien=${propertyId}`
+  if (isLoggedIn.value) {
+    return target
+  }
+
+  return `/connexion?redirect=${encodeURIComponent(target)}`
+}
 
 onMounted(async () => {
   try {
@@ -122,7 +133,7 @@ onMounted(async () => {
           </div>
           <div class="flex gap-2">
             <RouterLink :to="`/biens/${property.id}`" class="flex-1 rounded-lg border border-input px-4 py-2 text-center text-sm font-medium text-foreground">Voir details</RouterLink>
-            <RouterLink :to="`/client/reservations/nouvelle?bien=${property.id}`" class="flex-1 inline-flex items-center justify-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground"><Calendar class="h-4 w-4" />Reserver</RouterLink>
+            <RouterLink :to="getReservationTarget(property.id)" class="flex-1 inline-flex items-center justify-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground"><Calendar class="h-4 w-4" />Reserver</RouterLink>
           </div>
         </div>
       </article>

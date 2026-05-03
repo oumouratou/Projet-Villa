@@ -1,19 +1,53 @@
 "use client"
 
-import { useState, Suspense } from "react"
+import { useEffect, useMemo, useState, Suspense } from "react"
 import Link from "next/link"
 import Image from "next/image"
 import { useRouter, useSearchParams } from "next/navigation"
 import { ArrowLeft, Calendar, MapPin, CheckCircle } from "lucide-react"
 import { DashboardHeader } from "@/components/dashboard-header"
-import { mockProperties } from "@/lib/mock-data"
+import type { Property } from "@/lib/types"
+import { getProperties, createReservation } from "@/lib/backend-api"
+import { useAuth } from "@/hooks/use-auth"
 
 function NewReservationForm() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const propertyId = searchParams.get("bien")
-  
-  const property = propertyId ? mockProperties.find(p => p.id === propertyId) : null
+
+  const [properties, setProperties] = useState<Property[]>([])
+  const [isLoadingProperties, setIsLoadingProperties] = useState(true)
+  const [propertiesError, setPropertiesError] = useState<string | null>(null)
+
+  useEffect(() => {
+    let cancelled = false
+
+    async function load() {
+      setIsLoadingProperties(true)
+      setPropertiesError(null)
+
+      try {
+        const props = await getProperties()
+        if (cancelled) return
+        setProperties(props)
+      } catch (e) {
+        if (cancelled) return
+        setPropertiesError(e instanceof Error ? e.message : "Erreur lors du chargement")
+      } finally {
+        if (!cancelled) setIsLoadingProperties(false)
+      }
+    }
+
+    load()
+    return () => {
+      cancelled = true
+    }
+  }, [])
+
+  const property = useMemo(
+    () => (propertyId ? properties.find((p) => p.id === propertyId) : null),
+    [properties, propertyId]
+  )
 
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [isSuccess, setIsSuccess] = useState(false)
@@ -24,26 +58,40 @@ function NewReservationForm() {
     message: "",
   })
 
-  const selectedProperty = mockProperties.find(p => p.id === formData.propertyId)
-  const availableProperties = mockProperties.filter(p => p.status === "disponible")
+  const selectedProperty = properties.find((p) => p.id === formData.propertyId)
+  const availableProperties = properties.filter((p) => p.status === "disponible")
+
+  const { isAuthenticated, token } = useAuth()
 
   const calculateTotal = () => {
     if (!selectedProperty || !formData.startDate || !formData.endDate) return 0
     const start = new Date(formData.startDate)
     const end = new Date(formData.endDate)
-    const months = Math.ceil((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24 * 30))
-    return months * selectedProperty.price
+    const nights = Math.max(1, Math.ceil((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24)))
+    return nights * selectedProperty.pricePerNight
   }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
+
+    if (!isAuthenticated || !token) {
+      // redirect to login with redirect back
+      const redirect = `/client/reservations/nouvelle?bien=${formData.propertyId}`
+      window.location.href = `/connexion?redirect=${encodeURIComponent(redirect)}`
+      return
+    }
+
     setIsSubmitting(true)
 
-    // Simulation de soumission
-    await new Promise(resolve => setTimeout(resolve, 1500))
-
-    setIsSuccess(true)
-    setIsSubmitting(false)
+    try {
+      await createReservation({ propertyId: formData.propertyId, startDate: formData.startDate, endDate: formData.endDate }, token)
+      setIsSuccess(true)
+    } catch (err: any) {
+      console.error(err)
+      alert(err?.message || "Erreur lors de la réservation")
+    } finally {
+      setIsSubmitting(false)
+    }
   }
 
   if (isSuccess) {
@@ -84,16 +132,22 @@ function NewReservationForm() {
           {!propertyId && (
             <div className="bg-card rounded-xl border border-border p-5">
               <h3 className="font-semibold text-foreground mb-4">Selectionnez un bien</h3>
+              {isLoadingProperties ? (
+                <p className="text-sm text-muted-foreground">Chargement des biens...</p>
+              ) : propertiesError ? (
+                <p className="text-sm text-destructive">{propertiesError}</p>
+              ) : null}
               <select
                 required
                 value={formData.propertyId}
                 onChange={(e) => setFormData({ ...formData, propertyId: e.target.value })}
+                disabled={isLoadingProperties || !!propertiesError}
                 className="w-full px-4 py-2.5 bg-background border border-input rounded-lg text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
               >
                 <option value="">Choisir un bien...</option>
                 {availableProperties.map((p) => (
                   <option key={p.id} value={p.id}>
-                    {p.title} - {p.city} ({p.price} EUR/mois)
+                    {p.title} - {p.city} ({p.pricePerNight.toLocaleString()} FCFA/nuit)
                   </option>
                 ))}
               </select>
@@ -118,7 +172,7 @@ function NewReservationForm() {
                   {selectedProperty.city}
                 </p>
                 <p className="text-primary font-semibold mt-2">
-                  {selectedProperty.price.toLocaleString()} EUR/mois
+                  {selectedProperty.pricePerNight.toLocaleString()} FCFA / nuit
                 </p>
               </div>
             </div>
@@ -185,21 +239,21 @@ function NewReservationForm() {
               <>
                 <div className="space-y-3 text-sm mb-4">
                   <div className="flex justify-between">
-                    <span className="text-muted-foreground">Loyer mensuel</span>
-                    <span className="text-foreground">{selectedProperty.price.toLocaleString()} EUR</span>
+                    <span className="text-muted-foreground">Prix par nuit</span>
+                    <span className="text-foreground">{selectedProperty.pricePerNight.toLocaleString()} FCFA</span>
                   </div>
                   {formData.startDate && formData.endDate && (
                     <>
                       <div className="flex justify-between">
                         <span className="text-muted-foreground">Periode</span>
                         <span className="text-foreground">
-                          {Math.ceil((new Date(formData.endDate).getTime() - new Date(formData.startDate).getTime()) / (1000 * 60 * 60 * 24 * 30))} mois
+                          {Math.max(1, Math.ceil((new Date(formData.endDate).getTime() - new Date(formData.startDate).getTime()) / (1000 * 60 * 60 * 24)))} nuit(s)
                         </span>
                       </div>
                       <hr className="border-border" />
                       <div className="flex justify-between font-semibold text-base">
                         <span className="text-foreground">Total estime</span>
-                        <span className="text-primary">{calculateTotal().toLocaleString()} EUR</span>
+                        <span className="text-primary">{calculateTotal().toLocaleString()} FCFA</span>
                       </div>
                     </>
                   )}

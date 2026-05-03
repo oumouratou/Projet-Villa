@@ -13,8 +13,8 @@ export type PropertyStatus = "disponible" | "reserve" | "maintenance"
 export interface PropertyOption {
   id: string
   name: string
-  icon: string
-  description?: string
+  icon?: string | null
+  description?: string | null
 }
 
 export interface Property {
@@ -24,6 +24,7 @@ export interface Property {
   description: string
   address: string
   city: string
+  postalCode?: string | null
   pricePerNight: number
   surface: number
   bedrooms: number
@@ -31,8 +32,8 @@ export interface Property {
   capacity: number
   status: PropertyStatus
   images: string[]
-  options: string[]
-  agentId: string
+  options: PropertyOption[]
+  agentId?: string | null
   createdAt: string
 }
 

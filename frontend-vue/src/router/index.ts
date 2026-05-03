@@ -1,6 +1,7 @@
 import { createRouter, createWebHistory, type RouteRecordRaw } from 'vue-router'
 import NotFoundPage from '../views/NotFoundPage.vue'
-import { getStoredToken, getStoredUser } from '@/lib/session'
+import { fetchCurrentUser } from '@/lib/api'
+import { getStoredToken, getStoredRole, getUserRole, setSession } from '@/lib/session'
 
 const routes: RouteRecordRaw[] = [
   { path: '/', component: () => import('@/app/page.vue') },
@@ -13,6 +14,7 @@ const routes: RouteRecordRaw[] = [
   { path: '/admin/parametres', component: () => import('@/app/admin/parametres/page.vue') },
   { path: '/admin/permissions', component: () => import('@/app/admin/permissions/page.vue') },
   { path: '/admin/roles', component: () => import('@/app/admin/roles/page.vue') },
+  { path: '/admin/options', component: () => import('@/app/admin/options/page.vue') },
   { path: '/admin/utilisateurs', component: () => import('@/app/admin/utilisateurs/page.vue') },
   { path: '/admin/utilisateurs/nouveau', component: () => import('@/app/admin/utilisateurs/nouveau/page.vue') },
   { path: '/admin/utilisateurs/:id', component: () => import('@/app/admin/utilisateurs/[id]/page.vue') },
@@ -46,31 +48,47 @@ export const router = createRouter({
   routes,
 })
 
-router.beforeEach((to) => {
+router.beforeEach(async (to) => {
   const protectedPrefixes = ['/admin', '/agent', '/client']
   const isProtected = protectedPrefixes.some(prefix => to.path.startsWith(prefix))
 
-  if (!isProtected) {
+  if (!isProtected) return true
+
+  const token = getStoredToken()
+  let role = getStoredRole()
+
+  if (token && !role) {
+    try {
+      const currentUser = await fetchCurrentUser()
+      if (currentUser) {
+        setSession(token, currentUser)
+        role = getUserRole(currentUser)
+      }
+    } catch {
+      role = null
+    }
+  }
+
+  if (!token || !role) return '/connexion'
+
+  // ADMIN → accès /admin et /agent (supervise)
+  if (role === 'admin') {
+    if (to.path.startsWith('/client')) return '/admin'
     return true
   }
 
-  const token = getStoredToken()
-  const user = getStoredUser() as { role?: string } | null
-
-  if (!token || !user?.role) {
-    return '/connexion'
+  // AGENT → accès /agent uniquement
+  if (role === 'agent') {
+    if (to.path.startsWith('/admin')) return '/agent'
+    if (to.path.startsWith('/client')) return '/agent'
+    return true
   }
 
-  if (to.path.startsWith('/admin') && user.role !== 'admin') {
-    return `/${user.role}`
-  }
-
-  if (to.path.startsWith('/agent') && user.role !== 'agent' && user.role !== 'admin') {
-    return `/${user.role}`
-  }
-
-  if (to.path.startsWith('/client') && user.role !== 'client') {
-    return `/${user.role}`
+  // CLIENT → accès /client uniquement
+  if (role === 'client') {
+    if (to.path.startsWith('/admin')) return '/client'
+    if (to.path.startsWith('/agent')) return '/client'
+    return true
   }
 
   return true

@@ -5,7 +5,7 @@ import { Search, SlidersHorizontal, Sparkles, X } from 'lucide-vue-next'
 import PublicHeader from '@/components/PublicHeader.vue'
 import PublicFooter from '@/components/PublicFooter.vue'
 import PropertyCard from '@/components/PropertyCard.vue'
-import { getList } from '@/lib/api'
+import { getList, getProperties } from '@/lib/api'
 
 const route = useRoute()
 const router = useRouter()
@@ -67,13 +67,16 @@ const applyRouteFilters = () => {
 onMounted(async () => {
   applyRouteFilters()
   try {
-    properties.value = await getList('/properties')
+    properties.value = await getProperties()
   } catch {
     properties.value = []
   }
 
   try {
-    options.value = await getList('/options')
+    options.value = (await getList('/options')).map((option) => ({
+      ...option,
+      id: String(option.id),
+    }))
   } catch {
     options.value = []
   }

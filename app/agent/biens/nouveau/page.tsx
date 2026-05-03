@@ -1,54 +1,36 @@
 "use client"
 
-import { useState } from "react"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
-import { Textarea } from "@/components/ui/textarea"
-import { Checkbox } from "@/components/ui/checkbox"
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select"
-import { ArrowLeft, Upload, X, Save, Building2 } from "lucide-react"
-import Link from "next/link"
-import { mockOptions } from "@/lib/mock-data"
+import { PropertyForm } from "@/components/property-form"
+import { useAuth } from "@/hooks/use-auth"
+import { useRouter } from "next/navigation"
+import { useEffect } from "react"
 
 export default function NewPropertyPage() {
-  const [images, setImages] = useState<string[]>([])
-  const [selectedOptions, setSelectedOptions] = useState<string[]>([])
+  const { isAuthenticated, isLoading, user } = useAuth()
+  const router = useRouter()
 
-  const handleOptionToggle = (optionId: string) => {
-    setSelectedOptions(prev => 
-      prev.includes(optionId) 
-        ? prev.filter(id => id !== optionId)
-        : [...prev, optionId]
-    )
+  useEffect(() => {
+    if (!isLoading && (!isAuthenticated || (user?.role !== "admin" && user?.role !== "agent"))) {
+      router.push("/connexion")
+    }
+  }, [isAuthenticated, isLoading, user, router])
+
+  if (isLoading) {
+    return <div className="flex justify-center items-center min-h-screen">Chargement...</div>
+  }
+
+  if (!isAuthenticated || (user?.role !== "admin" && user?.role !== "agent")) {
+    return null
   }
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center gap-4">
-        <Button variant="ghost" size="icon" asChild>
-          <Link href="/agent/biens">
-            <ArrowLeft className="h-5 w-5" />
-          </Link>
-        </Button>
-        <div>
-          <h1 className="text-3xl font-bold text-foreground">Ajouter un bien</h1>
-          <p className="text-muted-foreground mt-1">
-            Remplissez les informations du nouveau bien immobilier
-          </p>
-        </div>
+    <div className="min-h-screen bg-background p-4">
+      <div className="max-w-2xl mx-auto">
+        <PropertyForm />
       </div>
-
-      <form className="space-y-6">
-        {/* Informations générales */}
-        <Card>
+    </div>
+  )
+}
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <Building2 className="h-5 w-5" />

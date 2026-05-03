@@ -1,207 +1,170 @@
 "use client"
 
-import { useState } from "react"
+import { useState, Suspense } from "react"
 import Link from "next/link"
-import { MessageSquare, Plus, Search, Filter, Eye, Clock, AlertCircle, CheckCircle } from "lucide-react"
+import { useRouter } from "next/navigation"
+import { ArrowLeft, Send, CheckCircle } from "lucide-react"
 import { DashboardHeader } from "@/components/dashboard-header"
-import { mockComplaints } from "@/lib/mock-data"
-import type { ComplaintStatus } from "@/lib/types"
 
-export default function ClientComplaintsPage() {
-  const [statusFilter, setStatusFilter] = useState<ComplaintStatus | "all">("all")
-  const [searchQuery, setSearchQuery] = useState("")
-
-  // Filtrer pour le client actuel (simulation)
-  const clientComplaints = mockComplaints.filter(c => c.clientId === "client1")
-
-  const filteredComplaints = clientComplaints.filter(complaint => {
-    const matchesStatus = statusFilter === "all" || complaint.status === statusFilter
-    const matchesSearch = !searchQuery || 
-      complaint.subject.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      complaint.description.toLowerCase().includes(searchQuery.toLowerCase())
-    return matchesStatus && matchesSearch
+function NewComplaintForm() {
+  const router = useRouter()
+  const [isSubmitting, setIsSubmitting] = useState(false)
+  const [isSuccess, setIsSuccess] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const [formData, setFormData] = useState({
+    reservation_id: "",
+    subject: "",
+    description: "",
   })
 
-  const statusColors: Record<ComplaintStatus, string> = {
-    nouvelle: "bg-blue-100 text-blue-800",
-    en_cours: "bg-yellow-100 text-yellow-800",
-    traitee: "bg-green-100 text-green-800",
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    setIsSubmitting(true)
+    setError(null)
+
+    try {
+      const response = await fetch("http://127.0.0.1:8000/api/reclamations", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${localStorage.getItem("token") || ""}`,
+        },
+        body: JSON.stringify(formData),
+      })
+
+      if (!response.ok) {
+        const errorData = await response.json()
+        throw new Error(errorData.message || "Une erreur est survenue.")
+      }
+
+      setIsSuccess(true)
+    } catch (err: any) {
+      setError(err.message)
+    } finally {
+      setIsSubmitting(false)
+    }
   }
 
-  const statusLabels: Record<ComplaintStatus, string> = {
-    nouvelle: "Nouvelle",
-    en_cours: "En cours",
-    traitee: "Traitee",
-  }
-
-  const statusIcons: Record<ComplaintStatus, React.ElementType> = {
-    nouvelle: AlertCircle,
-    en_cours: Clock,
-    traitee: CheckCircle,
+  if (isSuccess) {
+    return (
+      <div className="max-w-lg mx-auto text-center py-12">
+        <div className="inline-flex items-center justify-center w-16 h-16 bg-green-100 rounded-full mb-6">
+          <CheckCircle className="h-8 w-8 text-green-600" />
+        </div>
+        <h2 className="text-2xl font-bold text-foreground mb-2">Réclamation envoyée !</h2>
+        <p className="text-muted-foreground mb-6">
+          Votre réclamation a été enregistrée. Un agent vous répondra dans les plus brefs délais.
+        </p>
+        <Link
+          href="/client/reclamations"
+          className="px-6 py-2.5 bg-primary text-primary-foreground rounded-lg font-medium hover:bg-primary/90 transition-colors"
+        >
+          Voir mes réclamations
+        </Link>
+      </div>
+    )
   }
 
   return (
-    <>
-      <DashboardHeader title="Mes reclamations" subtitle="Gerez et suivez vos reclamations" />
+    <form onSubmit={handleSubmit} className="max-w-2xl">
+      <div className="bg-card rounded-xl border border-border p-6 space-y-6">
+        <div>
+          <label htmlFor="reservation_id" className="block text-sm font-medium text-foreground mb-2">
+            Numéro de réservation
+          </label>
+          <input
+            id="reservation_id"
+            type="number"
+            required
+            value={formData.reservation_id}
+            onChange={(e) => setFormData({ ...formData, reservation_id: e.target.value })}
+            placeholder="Ex: 12345"
+            className="w-full px-4 py-2.5 bg-background border border-input rounded-lg text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
+          />
+        </div>
+        <div>
+          <label htmlFor="subject" className="block text-sm font-medium text-foreground mb-2">
+            Sujet
+          </label>
+          <input
+            id="subject"
+            type="text"
+            required
+            value={formData.subject}
+            onChange={(e) => setFormData({ ...formData, subject: e.target.value })}
+            placeholder="Ex: Problème avec la climatisation"
+            className="w-full px-4 py-2.5 bg-background border border-input rounded-lg text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
+          />
+        </div>
+        <div>
+          <label htmlFor="description" className="block text-sm font-medium text-foreground mb-2">
+            Description détaillée
+          </label>
+          <textarea
+            id="description"
+            required
+            value={formData.description}
+            onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+            rows={6}
+            placeholder="Veuillez décrire le problème en détail..."
+            className="w-full px-4 py-2.5 bg-background border border-input rounded-lg text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring resize-none"
+          />
+        </div>
+      </div>
 
-      <main className="flex-1 p-6 overflow-auto">
-        {/* Header Actions */}
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
-          <div className="grid grid-cols-3 gap-4">
-            <div className="bg-card rounded-xl border border-border p-4">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-lg bg-blue-100 flex items-center justify-center">
-                  <AlertCircle className="h-5 w-5 text-blue-600" />
-                </div>
-                <div>
-                  <p className="text-xl font-bold text-foreground">
-                    {clientComplaints.filter(c => c.status === "nouvelle").length}
-                  </p>
-                  <p className="text-xs text-muted-foreground">Nouvelles</p>
-                </div>
-              </div>
-            </div>
-            <div className="bg-card rounded-xl border border-border p-4">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-lg bg-yellow-100 flex items-center justify-center">
-                  <Clock className="h-5 w-5 text-yellow-600" />
-                </div>
-                <div>
-                  <p className="text-xl font-bold text-foreground">
-                    {clientComplaints.filter(c => c.status === "en_cours").length}
-                  </p>
-                  <p className="text-xs text-muted-foreground">En cours</p>
-                </div>
-              </div>
-            </div>
-            <div className="bg-card rounded-xl border border-border p-4">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-lg bg-green-100 flex items-center justify-center">
-                  <CheckCircle className="h-5 w-5 text-green-600" />
-                </div>
-                <div>
-                  <p className="text-xl font-bold text-foreground">
-                    {clientComplaints.filter(c => c.status === "traitee").length}
-                  </p>
-                  <p className="text-xs text-muted-foreground">Traitees</p>
-                </div>
-              </div>
-            </div>
-          </div>
+      {error && (
+        <div className="mt-4 text-red-600 bg-red-100 border border-red-300 rounded-lg p-3 text-sm">
+          <strong>Erreur :</strong> {error}
+        </div>
+      )}
 
+      <div className="mt-6 flex justify-end gap-4">
+        <Link
+          href="/client/reclamations"
+          className="px-6 py-2.5 border border-input rounded-lg font-medium text-foreground hover:bg-muted transition-colors"
+        >
+          Annuler
+        </Link>
+        <button
+          type="submit"
+          disabled={isSubmitting}
+          className="px-6 py-2.5 bg-primary text-primary-foreground rounded-lg font-medium hover:bg-primary/90 transition-colors flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+        >
+          {isSubmitting ? (
+            <>
+              <span className="animate-spin h-5 w-5 border-t-2 border-r-2 border-primary-foreground rounded-full"></span>
+              Envoi...
+            </>
+          ) : (
+            <>
+              <Send className="h-5 w-5" />
+              Envoyer
+            </>
+          )}
+        </button>
+      </div>
+    </form>
+  )
+}
+
+export default function NewComplaintPage() {
+  return (
+    <div className="flex-1">
+      <DashboardHeader title="Nouvelle réclamation" />
+      <main className="p-4 sm:p-6">
+        <div className="max-w-7xl mx-auto">
           <Link
-            href="/client/reclamations/nouvelle"
-            className="inline-flex items-center justify-center gap-2 px-4 py-2.5 bg-primary text-primary-foreground rounded-lg font-medium hover:bg-primary/90 transition-colors"
+            href="/client/reclamations"
+            className="inline-flex items-center gap-2 text-muted-foreground hover:text-foreground transition-colors mb-6"
           >
-            <Plus className="h-5 w-5" />
-            Nouvelle reclamation
+            <ArrowLeft className="h-4 w-4" />
+            Retour aux réclamations
           </Link>
+          <Suspense fallback={<div>Chargement...</div>}>
+            <NewComplaintForm />
+          </Suspense>
         </div>
-
-        {/* Filters */}
-        <div className="bg-card rounded-xl border border-border p-4 mb-6">
-          <div className="flex flex-col sm:flex-row gap-4">
-            <div className="flex-1 relative">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
-              <input
-                type="text"
-                placeholder="Rechercher une reclamation..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full pl-10 pr-4 py-2.5 bg-background border border-input rounded-lg text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring"
-              />
-            </div>
-            <div className="flex items-center gap-2">
-              <Filter className="h-5 w-5 text-muted-foreground" />
-              <select
-                value={statusFilter}
-                onChange={(e) => setStatusFilter(e.target.value as ComplaintStatus | "all")}
-                className="px-4 py-2.5 bg-background border border-input rounded-lg text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
-              >
-                <option value="all">Tous les statuts</option>
-                <option value="nouvelle">Nouvelles</option>
-                <option value="en_cours">En cours</option>
-                <option value="traitee">Traitees</option>
-              </select>
-            </div>
-          </div>
-        </div>
-
-        {/* Complaints List */}
-        {filteredComplaints.length > 0 ? (
-          <div className="space-y-4">
-            {filteredComplaints.map((complaint) => {
-              const StatusIcon = statusIcons[complaint.status]
-              return (
-                <div
-                  key={complaint.id}
-                  className="bg-card rounded-xl border border-border p-5 hover:shadow-md transition-shadow"
-                >
-                  <div className="flex flex-col lg:flex-row lg:items-start justify-between gap-4">
-                    <div className="flex items-start gap-4">
-                      <div className="w-12 h-12 rounded-lg bg-muted flex items-center justify-center flex-shrink-0">
-                        <MessageSquare className="h-6 w-6 text-muted-foreground" />
-                      </div>
-                      <div className="flex-1">
-                        <h3 className="font-semibold text-foreground mb-1">{complaint.subject}</h3>
-                        <p className="text-sm text-muted-foreground line-clamp-2 mb-2">
-                          {complaint.description}
-                        </p>
-                        <p className="text-xs text-muted-foreground">
-                          Cree le {complaint.createdAt.toLocaleDateString("fr-FR")}
-                          {complaint.reservation && (
-                            <> - Lie a la reservation #{complaint.reservationId}</>
-                          )}
-                        </p>
-                      </div>
-                    </div>
-
-                    <div className="flex items-center gap-3">
-                      <span className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-medium ${statusColors[complaint.status]}`}>
-                        <StatusIcon className="h-4 w-4" />
-                        {statusLabels[complaint.status]}
-                      </span>
-                      <Link
-                        href={`/client/reclamations/${complaint.id}`}
-                        className="inline-flex items-center gap-2 px-4 py-2 bg-primary text-primary-foreground rounded-lg text-sm font-medium hover:bg-primary/90 transition-colors"
-                      >
-                        <Eye className="h-4 w-4" />
-                        Details
-                      </Link>
-                    </div>
-                  </div>
-
-                  {complaint.agentResponse && (
-                    <div className="mt-4 pt-4 border-t border-border">
-                      <p className="text-sm">
-                        <span className="font-medium text-foreground">Reponse de l&apos;agent :</span>{" "}
-                        <span className="text-muted-foreground">{complaint.agentResponse}</span>
-                      </p>
-                    </div>
-                  )}
-                </div>
-              )
-            })}
-          </div>
-        ) : (
-          <div className="text-center py-16 bg-card rounded-xl border border-border">
-            <MessageSquare className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-            <h3 className="text-lg font-semibold text-foreground mb-2">Aucune reclamation trouvee</h3>
-            <p className="text-muted-foreground mb-4">
-              {statusFilter !== "all" || searchQuery
-                ? "Essayez de modifier vos filtres"
-                : "Vous n'avez pas encore de reclamation"}
-            </p>
-            <Link
-              href="/client/reclamations/nouvelle"
-              className="inline-flex items-center gap-2 px-4 py-2 bg-primary text-primary-foreground rounded-lg font-medium hover:bg-primary/90 transition-colors"
-            >
-              <Plus className="h-4 w-4" />
-              Nouvelle reclamation
-            </Link>
-          </div>
-        )}
       </main>
-    </>
+    </div>
   )
 }

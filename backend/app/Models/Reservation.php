@@ -2,49 +2,43 @@
 
 namespace App\Models;
 
-use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
-use Illuminate\Database\Eloquent\Relations\BelongsTo;
-use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Factories\HasFactory;
 
 class Reservation extends Model
 {
     use HasFactory;
 
     protected $fillable = [
-        'property_id',
         'client_id',
-        'start_date',
-        'end_date',
-        'status',
-        'total_price',
-        'agent_comment',
         'agent_id',
+        'bien_immobilier_id',
+        'date_debut',
+        'date_fin',
+        'statut',
+        'commentaire_agent',
+        'guest_name',
+        'guest_email',
+        'guest_phone',
     ];
 
     protected $casts = [
-        'start_date' => 'date',
-        'end_date' => 'date',
-        'total_price' => 'integer',
+        'date_debut' => 'date',
+        'date_fin' => 'date',
     ];
 
-    public function property(): BelongsTo
-    {
-        return $this->belongsTo(Property::class);
-    }
-
-    public function client(): BelongsTo
+    public function client()
     {
         return $this->belongsTo(Client::class);
     }
 
-    public function agent(): BelongsTo
+    public function agent()
     {
         return $this->belongsTo(User::class, 'agent_id');
     }
 
-    public function complaints(): HasMany
+    public function bien()
     {
-        return $this->hasMany(Complaint::class);
+        return $this->belongsTo(BienImmobilier::class);
     }
 }

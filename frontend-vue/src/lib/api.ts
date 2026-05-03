@@ -17,6 +17,16 @@ api.interceptors.request.use((config) => {
   return config
 })
 
+api.interceptors.response.use(
+  (response) => response,
+  (error) => {
+    if (axios.isAxiosError(error) && error.response?.status === 401) {
+      clearSession()
+    }
+    return Promise.reject(error)
+  },
+)
+
 function normalizeError(error: unknown): Error {
   if (axios.isAxiosError(error)) {
     const status = error.response?.status
@@ -80,7 +90,14 @@ export async function loginUser(email: string, password: string) {
   }
 }
 
-export async function registerUser(payload: { name: string; email: string; phone?: string; password: string }) {
+export async function registerUser(payload: {
+  first_name?: string
+  last_name?: string
+  name?: string
+  email: string
+  phone?: string
+  password: string
+}) {
   try {
     const { data } = await api.post<ApiResponse<RowData>>('/auth/register', payload)
     return data.data
@@ -104,6 +121,102 @@ export async function logoutUser(): Promise<void> {
     await api.post('/auth/logout')
   } finally {
     clearSession()
+  }
+}
+
+export type NotificationItem = {
+  id: number
+  type: 'reservation' | 'complaint'
+  message: string
+  status?: string
+  subject?: string
+  time?: string | null
+  unread?: boolean
+}
+
+export type NotificationSummary = {
+  pendingReservations: number
+  openComplaints: number
+  unreadCount: number
+  notifications: NotificationItem[]
+}
+
+export async function getNotificationSummary(): Promise<NotificationSummary> {
+  try {
+    const { data } = await api.get<ApiResponse<NotificationSummary>>('/notifications/summary')
+    return data.data
+  } catch (error) {
+    throw normalizeError(error)
+  }
+}
+
+export async function createReservation(payload: {
+  propertyId: string
+  startDate: string
+  endDate: string
+  guestName?: string
+  guestEmail?: string
+  guestPhone?: string
+}) {
+  try {
+    const { data } = await api.post<ApiResponse<RowData>>('/reservations', {
+      property_id: Number(payload.propertyId),
+      start_date: payload.startDate,
+      end_date: payload.endDate,
+      ...(payload.guestName ? { guest_name: payload.guestName } : {}),
+      ...(payload.guestEmail ? { guest_email: payload.guestEmail } : {}),
+      ...(payload.guestPhone ? { guest_phone: payload.guestPhone } : {}),
+    })
+    return data.data
+  } catch (error) {
+    throw normalizeError(error)
+  }
+}
+
+export async function updateReservation(payload: {
+  id: string
+  status?: 'en_attente' | 'confirmee' | 'refusee' | 'annulee'
+  comment?: string
+}) {
+  try {
+    const { data } = await api.patch<ApiResponse<RowData>>(`/reservations/${payload.id}`, {
+      statut: payload.status,
+      commentaire_agent: payload.comment,
+    })
+    return data.data
+  } catch (error) {
+    throw normalizeError(error)
+  }
+}
+
+export async function createComplaint(payload: { reservationId: string; subject: string; description: string }) {
+  try {
+    const { data } = await api.post<ApiResponse<RowData>>('/complaints', {
+      reservation_id: Number(payload.reservationId),
+      subject: payload.subject,
+      description: payload.description,
+    })
+    return data.data
+  } catch (error) {
+    throw normalizeError(error)
+  }
+}
+
+export async function updateComplaint(payload: {
+  id: string
+  status?: 'ouverte' | 'en_cours' | 'traitee' | 'fermee'
+  subject?: string
+  description?: string
+}) {
+  try {
+    const { data } = await api.patch<ApiResponse<RowData>>(`/complaints/${payload.id}`, {
+      statut: payload.status,
+      subject: payload.subject,
+      description: payload.description,
+    })
+    return data.data
+  } catch (error) {
+    throw normalizeError(error)
   }
 }
 

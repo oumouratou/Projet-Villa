@@ -1,53 +1,67 @@
 "use client"
 
-import { use, useState } from "react"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
-import { Textarea } from "@/components/ui/textarea"
-import { Checkbox } from "@/components/ui/checkbox"
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select"
-import { ArrowLeft, Upload, X, Save, Building2 } from "lucide-react"
-import Link from "next/link"
-import { mockProperties, mockOptions } from "@/lib/mock-data"
+import { PropertyForm } from "@/components/property-form"
+import { useAuth } from "@/hooks/use-auth"
+import { useRouter } from "next/navigation"
+import { useEffect, useState } from "react"
+import { getProperty } from "@/lib/backend-api"
+import type { Property } from "@/lib/types"
+import { Loader2 } from "lucide-react"
 
-export default function EditPropertyPage({ params }: { params: Promise<{ id: string }> }) {
-  const { id } = use(params)
-  const property = mockProperties.find(p => p.id === id)
-  
-  const [selectedOptions, setSelectedOptions] = useState<string[]>(property?.options || [])
-  const [images, setImages] = useState<string[]>(property?.images || [])
+export default function EditPropertyPage({ params }: { params: { id: string } }) {
+  const { isAuthenticated, isLoading, user } = useAuth()
+  const router = useRouter()
+  const [property, setProperty] = useState<Property | null>(null)
+  const [loading, setLoading] = useState(true)
 
-  if (!property) {
+  useEffect(() => {
+    if (!isLoading && (!isAuthenticated || (user?.role !== "admin" && user?.role !== "agent"))) {
+      router.push("/connexion")
+    }
+  }, [isAuthenticated, isLoading, user, router])
+
+  useEffect(() => {
+    async function loadProperty() {
+      try {
+        const data = await getProperty(params.id)
+        if (!data) {
+          router.push("/agent/biens")
+          return
+        }
+        setProperty(data)
+      } catch {
+        router.push("/agent/biens")
+      } finally {
+        setLoading(false)
+      }
+    }
+    loadProperty()
+  }, [params.id, router])
+
+  if (isLoading || loading) {
     return (
-      <div className="flex flex-col items-center justify-center py-12">
-        <h1 className="text-2xl font-bold">Bien non trouvé</h1>
-        <Button className="mt-4" asChild>
-          <Link href="/agent/biens">Retour à la liste</Link>
-        </Button>
+      <div className="flex justify-center items-center min-h-screen">
+        <Loader2 className="h-8 w-8 animate-spin" />
       </div>
     )
   }
 
-  const handleOptionToggle = (optionId: string) => {
-    setSelectedOptions(prev => 
-      prev.includes(optionId) 
-        ? prev.filter(id => id !== optionId)
-        : [...prev, optionId]
-    )
+  if (!isAuthenticated || (user?.role !== "admin" && user?.role !== "agent")) {
+    return null
+  }
+
+  if (!property) {
+    return null
   }
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center gap-4">
-        <Button variant="ghost" size="icon" asChild>
+    <div className="min-h-screen bg-background p-4">
+      <div className="max-w-2xl mx-auto">
+        <PropertyForm property={property} />
+      </div>
+    </div>
+  )
+}
           <Link href={`/agent/biens/${property.id}`}>
             <ArrowLeft className="h-5 w-5" />
           </Link>

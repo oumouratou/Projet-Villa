@@ -1,33 +1,76 @@
 <?php
 
-use App\Http\Controllers\Api\AuthController;
-use App\Http\Controllers\Api\RealEstateController;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
+use App\Http\Controllers\AuthController;
+use App\Http\Controllers\RoleController;
+use App\Http\Controllers\PermissionController;
+use App\Http\Controllers\ClientController;
+use App\Http\Controllers\BienImmobilierController;
+use App\Http\Controllers\OptionController;
+use App\Http\Controllers\ReservationController;
+use App\Http\Controllers\ReclamationController;
+use App\Http\Controllers\UserController;
+use App\Http\Controllers\Api\NotificationController;
 
+// Authentication publique
+Route::post('/register', [AuthController::class, 'register']);
+Route::post('/login', [AuthController::class, 'login']);
+
+// Auth aliases
+Route::prefix('auth')->group(function () {
+    Route::post('/register', [AuthController::class, 'register']);
+    Route::post('/login', [AuthController::class, 'login']);
+    Route::post('/logout', [AuthController::class, 'logout'])->middleware('auth:sanctum');
+    Route::get('/me', [AuthController::class, 'me'])->middleware('auth:sanctum');
+});
+
+// Routes publiques
+Route::apiResource('roles', RoleController::class);
+Route::apiResource('permissions', PermissionController::class);
+Route::apiResource('clients', ClientController::class);
+Route::apiResource('biens', BienImmobilierController::class);
+Route::apiResource('properties', BienImmobilierController::class);
+Route::apiResource('options', OptionController::class);
+
+// Routes protégées
+Route::middleware('auth:sanctum')->group(function () {
+    Route::post('/logout', [AuthController::class, 'logout']);
+
+    // Réservations
+    Route::apiResource('reservations', ReservationController::class);
+
+    // Réclamations
+    Route::apiResource('reclamations', ReclamationController::class);
+    Route::apiResource('complaints', ReclamationController::class);
+
+    // Gestion utilisateurs (agents) — admin only
+    Route::apiResource('users', UserController::class);
+
+    // Notifications
+    Route::get('/notifications/summary', [NotificationController::class, 'summary']);
+});
+
+// Versioned v1
 Route::prefix('v1')->group(function () {
-    Route::post('/auth/login', [AuthController::class, 'login']);
-    Route::post('/auth/register', [AuthController::class, 'register']);
-    Route::middleware('auth.token')->group(function () {
-        Route::get('/auth/me', [AuthController::class, 'me']);
-        Route::post('/auth/logout', [AuthController::class, 'logout']);
+    Route::apiResource('biens', BienImmobilierController::class);
+    Route::apiResource('properties', BienImmobilierController::class);
+    Route::apiResource('options', OptionController::class);
+    Route::apiResource('roles', RoleController::class);
+    Route::apiResource('clients', ClientController::class);
+
+    Route::prefix('auth')->group(function () {
+        Route::post('/register', [AuthController::class, 'register']);
+        Route::post('/login', [AuthController::class, 'login']);
+        Route::post('/logout', [AuthController::class, 'logout'])->middleware('auth:sanctum');
+        Route::get('/me', [AuthController::class, 'me'])->middleware('auth:sanctum');
     });
 
-    Route::get('/dashboard/stats', [RealEstateController::class, 'dashboardStats']);
-
-    Route::get('/properties', [RealEstateController::class, 'properties']);
-    Route::get('/properties/{property}', [RealEstateController::class, 'propertyShow']);
-
-    Route::get('/clients', [RealEstateController::class, 'clients']);
-    Route::get('/clients/{client}', [RealEstateController::class, 'clientShow']);
-
-    Route::get('/users', [RealEstateController::class, 'users']);
-    Route::get('/users/{user}', [RealEstateController::class, 'userShow']);
-
-    Route::get('/reservations', [RealEstateController::class, 'reservations']);
-    Route::get('/reservations/{reservation}', [RealEstateController::class, 'reservationShow']);
-
-    Route::get('/complaints', [RealEstateController::class, 'complaints']);
-    Route::get('/complaints/{complaint}', [RealEstateController::class, 'complaintShow']);
-
-    Route::get('/options', [RealEstateController::class, 'options']);
+    Route::middleware('auth:sanctum')->group(function () {
+        Route::apiResource('reservations', ReservationController::class);
+        Route::apiResource('reclamations', ReclamationController::class);
+        Route::apiResource('complaints', ReclamationController::class);
+        Route::apiResource('users', UserController::class);
+        Route::get('/notifications/summary', [NotificationController::class, 'summary']);
+    });
 });
