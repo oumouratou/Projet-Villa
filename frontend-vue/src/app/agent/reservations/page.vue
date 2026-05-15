@@ -2,6 +2,7 @@
 import { computed, onMounted, ref } from 'vue'
 import { Search, Eye, CalendarDays, Clock, CheckCircle2, XCircle, RefreshCw, Filter } from 'lucide-vue-next'
 import { getList, updateReservation } from '@/lib/api'
+import { resolveImageSrc } from '@/lib/image'
 
 const reservations  = ref<any[]>([])
 const loading       = ref(true)
@@ -10,20 +11,34 @@ const statusFilter  = ref('all')
 const savingId      = ref<string | null>(null)
 const feedback      = ref<{ id: string; msg: string; type: 'ok' | 'err' } | null>(null)
 
+const reservationStatus = (r: any) => r.statut ?? r.status ?? 'en_attente'
+const reservationProperty = (r: any) => r.property ?? r.bien ?? null
+const reservationsList = computed(() => (Array.isArray(reservations.value) ? reservations.value : []))
+const imageSrc = (value?: string | null) => resolveImageSrc(value)
+
+const clientDisplayName = (client: any) => {
+  const fullName = `${client?.first_name ?? ''} ${client?.last_name ?? ''}`.trim()
+
+  return client?.name ?? (fullName || client?.email || '—')
+}
+
 const filtered = computed(() =>
-  reservations.value.filter(r => {
+  reservationsList.value.filter(r => {
+    const property = reservationProperty(r)
+    const propertyTitle = property?.title ?? property?.titre ?? ''
+
     const matchSearch =
-      r.property?.title?.toLowerCase().includes(searchTerm.value.toLowerCase()) ||
-      (r.client?.name ?? `${r.client?.first_name ?? ''} ${r.client?.last_name ?? ''}`).toLowerCase().includes(searchTerm.value.toLowerCase())
-    const matchStatus = statusFilter.value === 'all' || r.status === statusFilter.value
+      propertyTitle.toLowerCase().includes(searchTerm.value.toLowerCase()) ||
+      clientDisplayName(r.client).toLowerCase().includes(searchTerm.value.toLowerCase())
+    const matchStatus = statusFilter.value === 'all' || reservationStatus(r) === statusFilter.value
     return matchSearch && matchStatus
   })
 )
 
-const total     = computed(() => reservations.value.length)
-const pending   = computed(() => reservations.value.filter(r => r.status === 'en_attente').length)
-const confirmed = computed(() => reservations.value.filter(r => r.status === 'confirmee').length)
-const refused   = computed(() => reservations.value.filter(r => r.status === 'refusee').length)
+const total     = computed(() => reservationsList.value.length)
+const pending   = computed(() => reservationsList.value.filter(r => reservationStatus(r) === 'en_attente').length)
+const confirmed = computed(() => reservationsList.value.filter(r => reservationStatus(r) === 'confirmee').length)
+const refused   = computed(() => reservationsList.value.filter(r => reservationStatus(r) === 'refusee').length)
 
 const statusCls: Record<string, string> = {
   en_attente: 'bg-amber-100 text-amber-800 border border-amber-200',
@@ -38,8 +53,9 @@ const statusLbl: Record<string, string> = {
   annulee:    'Annulée',
 }
 
-const clientName = (r: any) =>
-  r.client?.name ?? `${r.client?.first_name ?? ''} ${r.client?.last_name ?? ''}`.trim() || r.client?.email || '—'
+const clientName = (r: any) => {
+  return clientDisplayName(r.client)
+}
 
 const setStatus = async (r: any, status: 'confirmee' | 'refusee') => {
   savingId.value = String(r.id)
@@ -62,7 +78,12 @@ const setStatus = async (r: any, status: 'confirmee' | 'refusee') => {
 }
 
 onMounted(async () => {
-  try { reservations.value = await getList('/reservations') } catch { reservations.value = [] }
+  try {
+    const response = await getList('/reservations')
+    reservations.value = Array.isArray(response) ? response : ((response as any)?.data ?? [])
+  } catch {
+    reservations.value = []
+  }
   finally { loading.value = false }
 })
 </script>
@@ -114,7 +135,7 @@ onMounted(async () => {
     <div class="rounded-xl border border-border bg-card overflow-hidden">
       <div class="border-b border-border p-5">
         <h2 class="flex items-center gap-2 font-semibold">
-          <CalendarDays class="h-5 w-5 text-primary" />{{ filtered.length }} réservation(s)
+          <CalendarDays class="h-5 w-5 text-primary" />{{ filtered?.length ?? 0 }} réservation(s)
         </h2>
       </div>
 
@@ -122,7 +143,7 @@ onMounted(async () => {
         <div v-for="i in 4" :key="i" class="h-20 animate-pulse rounded-xl bg-muted" />
       </div>
 
-      <div v-else-if="filtered.length === 0" class="p-12 text-center">
+      <div v-else-if="(filtered?.length ?? 0) === 0" class="p-12 text-center">
         <CalendarDays class="mx-auto mb-3 h-12 w-12 text-muted-foreground" />
         <p class="text-muted-foreground">Aucune réservation trouvée</p>
       </div>
@@ -133,11 +154,11 @@ onMounted(async () => {
 
             <div class="flex items-center gap-3 flex-1 min-w-0">
               <img
-                :src="r.property?.images?.[0] || 'https://images.unsplash.com/photo-1613490493576-7fde63acd811?w=100&h=80&fit=crop'"
-                class="h-14 w-20 rounded-lg object-cover flex-shrink-0" :alt="r.property?.title" />
+                :src="imageSrc(reservationProperty(r)?.images?.[0])"
+                class="h-14 w-20 rounded-lg object-cover flex-shrink-0" :alt="reservationProperty(r)?.title || reservationProperty(r)?.titre || 'Bien'" />
               <div class="min-w-0">
-                <p class="font-semibold text-foreground truncate">{{ r.property?.title ?? 'Bien #' + r.id }}</p>
-                <p class="text-xs text-muted-foreground">{{ r.property?.city }}</p>
+                <p class="font-semibold text-foreground truncate">{{ reservationProperty(r)?.title ?? reservationProperty(r)?.titre ?? 'Bien #' + r.id }}</p>
+                <p class="text-xs text-muted-foreground">{{ reservationProperty(r)?.city ?? reservationProperty(r)?.ville ?? '—' }}</p>
               </div>
             </div>
 
@@ -147,8 +168,8 @@ onMounted(async () => {
             </div>
 
             <div class="text-sm lg:w-36">
-              <p class="font-medium">{{ new Date(r.start_date ?? r.startDate).toLocaleDateString('fr-FR') }}</p>
-              <p class="text-xs text-muted-foreground">au {{ new Date(r.end_date ?? r.endDate).toLocaleDateString('fr-FR') }}</p>
+              <p class="font-medium">{{ new Date(r.date_debut ?? r.start_date ?? r.startDate).toLocaleDateString('fr-FR') }}</p>
+              <p class="text-xs text-muted-foreground">au {{ new Date(r.date_fin ?? r.end_date ?? r.endDate).toLocaleDateString('fr-FR') }}</p>
             </div>
 
             <div class="text-sm font-semibold lg:w-28">
@@ -163,11 +184,11 @@ onMounted(async () => {
                 {{ feedback.msg }}
               </div>
 
-              <span class="rounded-full px-3 py-1 text-xs font-bold" :class="statusCls[r.status] ?? 'bg-slate-100 text-slate-600'">
-                {{ statusLbl[r.status] ?? r.status }}
+              <span class="rounded-full px-3 py-1 text-xs font-bold" :class="statusCls[reservationStatus(r)] ?? 'bg-slate-100 text-slate-600'">
+                {{ statusLbl[reservationStatus(r)] ?? reservationStatus(r) }}
               </span>
 
-              <template v-if="r.status === 'en_attente'">
+              <template v-if="reservationStatus(r) === 'en_attente'">
                 <button @click="setStatus(r, 'confirmee')" :disabled="savingId === String(r.id)"
                   class="inline-flex items-center gap-1 rounded-lg bg-emerald-600 px-3 py-1.5 text-xs font-bold text-white hover:bg-emerald-700 disabled:opacity-50 transition-colors">
                   <RefreshCw v-if="savingId === String(r.id)" class="h-3 w-3 animate-spin" />

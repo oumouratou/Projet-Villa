@@ -53,8 +53,8 @@ class ReservationController extends Controller
             ->whereIn('statut', ['en_attente', 'confirmee'])
             ->where(function ($query) use ($start, $end) {
                 $query
-                    ->where('date_debut', '<=', $end->toDateString())
-                    ->where('date_fin', '>=', $start->toDateString());
+                    ->where('date_debut', '<', $end->toDateString())
+                    ->where('date_fin', '>', $start->toDateString());
             })
             ->exists();
 
@@ -83,4 +83,27 @@ class ReservationController extends Controller
             ]),
         ], 201);
     }
+
+public function index(Request $request)
+{
+    $user = $request->user();
+
+    // On charge l'utilisateur avec ses rôles et son profil client
+    $user->load(['roles', 'client']);
+
+    // On vérifie si l'un de ses rôles est 'client'
+    $isClient = $user->roles->contains('name', 'client');
+
+    if ($isClient && $user->client) {
+        // On récupère les réservations du client avec les infos du bien
+        $reservations = Reservation::where('client_id', $user->client->id)
+            ->with(['bien']) 
+            ->get();
+            
+        return response()->json($reservations); 
+    }
+
+    // Si c'est un agent, on peut afficher les réservations qui lui sont liées
+    return response()->json(Reservation::where('agent_id', $user->id)->with('bien')->get());
+}
 }

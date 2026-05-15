@@ -1,5 +1,9 @@
 <template>
-  <div v-if="!property" class="flex flex-col items-center justify-center py-12">
+  <div v-if="isLoadingProperty" class="flex flex-col items-center justify-center py-12">
+    <h1 class="text-2xl font-bold">Chargement du bien...</h1>
+  </div>
+
+  <div v-else-if="!property" class="flex flex-col items-center justify-center py-12">
     <h1 class="text-2xl font-bold">Bien non trouvé</h1>
     <router-link to="/agent/biens" class="mt-4 px-4 py-2 bg-blue-600 text-white rounded-md">
       Retour à la liste
@@ -18,6 +22,10 @@
     </div>
 
     <form @submit.prevent="handleSubmit" class="space-y-6">
+      <div v-if="errorMessage" class="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+        {{ errorMessage }}
+      </div>
+
       <div class="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
         <div class="p-6 border-b border-slate-100">
           <h3 class="font-bold text-slate-900 flex items-center gap-2">
@@ -109,7 +117,7 @@
       <div class="bg-white rounded-xl border border-slate-200 shadow-sm p-6">
         <h3 class="font-bold text-slate-900 mb-4">Options et équipements</h3>
         <div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          <div v-for="option in mockOptions" :key="option.id" class="flex items-center space-x-3">
+          <div v-for="option in options" :key="option.id" class="flex items-center space-x-3">
             <input 
               type="checkbox" 
               :id="option.id" 
@@ -141,7 +149,8 @@
         <div class="border-2 border-dashed border-slate-200 rounded-lg p-8 text-center hover:border-blue-400 transition-colors cursor-pointer">
           <Upload class="h-8 w-8 mx-auto text-slate-400 mb-2" />
           <p class="text-sm text-slate-500 mb-2">Cliquez pour ajouter des photos</p>
-          <button type="button" class="text-sm font-semibold text-blue-600">Parcourir les fichiers</button>
+          <button type="button" @click="triggerFileInput" class="text-sm font-semibold text-blue-600">Parcourir les fichiers</button>
+          <input ref="fileInput" type="file" class="hidden" accept="image/*" multiple @change="handleFileChange" />
         </div>
       </div>
 
@@ -151,10 +160,11 @@
         </router-link>
         <button 
           type="submit" 
-          class="flex items-center gap-2 px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 shadow-sm transition-colors"
+          :disabled="isSaving"
+          class="flex items-center gap-2 px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 shadow-sm transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
         >
           <Save class="h-4 w-4" />
-          Enregistrer les modifications
+          {{ isSaving ? 'Enregistrement...' : 'Enregistrer les modifications' }}
         </button>
       </div>
     </form>
@@ -162,48 +172,118 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive } from 'vue'
+import { onMounted, reactive, ref } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
 import { ArrowLeft, Upload, X, Save, Building2 } from 'lucide-vue-next'
+import { mockOptions } from '@/lib/mock-data'
+import { getProperty, getPropertyOptions, updateProperty } from '@/lib/api'
 
-// Simulation des props ou de la récupération d'ID (via vue-router ou inertia)
-const props = defineProps<{ id: string }>()
+const route = useRoute()
+const router = useRouter()
 
-// MOCK DATA (À importer de ton fichier lib)
-const mockOptions = [
-  { id: 'wifi', name: 'Wi-Fi' },
-  { id: 'pool', name: 'Piscine' },
-  { id: 'climatisation', name: 'Climatisation' },
-  { id: 'parking', name: 'Parking' },
-  { id: 'cuisine', name: 'Cuisine équipée' },
-]
+const property = ref<any | null>(null)
+const isLoadingProperty = ref(true)
+const isSaving = ref(false)
+const errorMessage = ref('')
+const options = ref(mockOptions)
+const fileInput = ref<HTMLInputElement | null>(null)
 
-// Simulation d'un bien trouvé
-const property = ref({
-  id: '1',
-  title: 'Villa de Luxe avec Piscine',
+const formData = reactive({
+  title: '',
   type: 'villa',
-  description: 'Une magnifique villa située au coeur de la ville...',
-  address: 'Rues des Jardins',
+  description: '',
+  address: '',
   city: 'abidjan',
-  surface: 250,
-  bedrooms: 4,
-  bathrooms: 3,
-  capacity: 8,
-  pricePerNight: 150000,
+  surface: 0,
+  bedrooms: 0,
+  bathrooms: 0,
+  capacity: 0,
+  pricePerNight: 0,
   status: 'disponible',
-  options: ['wifi', 'pool'],
-  images: ['https://images.unsplash.com/photo-1580587771525-78b9dba3b914?auto=format&fit=crop&q=80&w=800']
+  options: [] as string[],
+  images: [] as string[],
 })
 
-// État local réactif pour le formulaire
-const formData = reactive({ ...property.value })
+const triggerFileInput = () => fileInput.value?.click()
+
+const handleFileChange = (event: Event) => {
+  const files = (event.target as HTMLInputElement).files
+  if (!files) return
+
+  for (let index = 0; index < files.length; index += 1) {
+    const reader = new FileReader()
+    reader.onload = (loadEvent) => {
+      const result = loadEvent.target?.result
+      if (typeof result === 'string') {
+        formData.images.unshift(result)
+      }
+    }
+    reader.readAsDataURL(files[index])
+  }
+}
 
 const removeImage = (index: number) => {
   formData.images.splice(index, 1)
 }
 
-const handleSubmit = () => {
-  console.log("Données envoyées :", formData)
-  // Ici : axios.put(`/api/properties/${property.value.id}`, formData)
+onMounted(async () => {
+  try {
+    options.value = await getPropertyOptions()
+  } catch {
+    options.value = mockOptions
+  }
+
+  try {
+    const loaded = await getProperty(String(route.params.id))
+    property.value = loaded
+
+    formData.title = loaded.title
+    formData.type = loaded.type || 'villa'
+    formData.description = loaded.description || ''
+    formData.address = loaded.address || ''
+    formData.city = loaded.city || 'abidjan'
+    formData.surface = Number(loaded.surface ?? 0)
+    formData.bedrooms = Number(loaded.bedrooms ?? 0)
+    formData.bathrooms = Number(loaded.bathrooms ?? 0)
+    formData.capacity = Number(loaded.capacity ?? 0)
+    formData.pricePerNight = Number(loaded.pricePerNight ?? 0)
+    formData.status = loaded.status || 'disponible'
+    formData.options = (loaded.options ?? []).map((option: any) => String(option.id))
+    formData.images = [...(loaded.images ?? [])]
+  } catch {
+    property.value = null
+  } finally {
+    isLoadingProperty.value = false
+  }
+})
+
+const handleSubmit = async () => {
+  if (!property.value) return
+
+  errorMessage.value = ''
+  isSaving.value = true
+
+  try {
+    await updateProperty(String(route.params.id), {
+      title: formData.title,
+      type: formData.type,
+      description: formData.description,
+      address: formData.address,
+      city: formData.city,
+      pricePerNight: Number(formData.pricePerNight),
+      surface: Number(formData.surface),
+      bedrooms: Number(formData.bedrooms),
+      bathrooms: Number(formData.bathrooms),
+      capacity: Number(formData.capacity),
+      status: formData.status as 'disponible' | 'reserve' | 'maintenance',
+      options: formData.options,
+    })
+
+    router.push('/agent/biens')
+  } catch (error) {
+    errorMessage.value = error instanceof Error ? error.message : 'Impossible d’enregistrer les modifications.'
+  } finally {
+    isSaving.value = false
+  }
 }
 </script>

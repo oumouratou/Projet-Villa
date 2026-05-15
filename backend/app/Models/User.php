@@ -11,6 +11,8 @@ class User extends Authenticatable
 {
     use HasApiTokens, HasFactory, Notifiable;
 
+    protected $appends = ['role'];
+
     protected $fillable = [
         'first_name', 'last_name', 'name',
         'email', 'password', 'phone', 'status',
@@ -29,4 +31,13 @@ class User extends Authenticatable
     public function client(): HasOne { return $this->hasOne(Client::class); }
     public function roles() { return $this->belongsToMany(Role::class); }
     public function biens() { return $this->hasMany(BienImmobilier::class, 'agent_id'); }
+
+    public function getRoleAttribute(): ?string
+    {
+        if ($this->relationLoaded('roles')) {
+            return $this->roles->first()?->name;
+        }
+
+        return $this->roles()->value('name');
+    }
 }

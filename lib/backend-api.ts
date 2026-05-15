@@ -30,11 +30,16 @@ type BackendProperty = {
 }
 
 function getApiBaseUrl(): string {
-  return (
-    process.env.NEXT_PUBLIC_API_BASE_URL ??
-    process.env.API_BASE_URL ??
-    "http://127.0.0.1:8000/api"
-  )
+  const envUrl = process.env.NEXT_PUBLIC_API_BASE_URL ?? process.env.API_BASE_URL
+  if (envUrl) return envUrl
+
+  if (typeof window !== "undefined") {
+    const host = window.location.hostname
+    const backendHost = host === "localhost" || host === "::1" ? "127.0.0.1" : host
+    return `http://${backendHost}:8000/api`
+  }
+
+  return "http://127.0.0.1:8000/api"
 }
 
 async function fetchApi<T>(path: string, init?: RequestInit): Promise<T> {

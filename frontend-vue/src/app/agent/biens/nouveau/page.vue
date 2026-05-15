@@ -13,6 +13,9 @@
     </div>
 
     <form @submit.prevent="handleSubmit" class="space-y-6">
+      <div v-if="errorMessage" class="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+        {{ errorMessage }}
+      </div>
       <div class="bg-white rounded-xl border border-slate-200 shadow-sm">
         <div class="p-6 border-b border-slate-100">
           <h3 class="text-lg font-bold text-slate-900 flex items-center gap-2">
@@ -127,7 +130,7 @@
         <h3 class="text-lg font-bold text-slate-900 mb-1">Options et équipements</h3>
         <p class="text-sm text-slate-500 mb-4">Sélectionnez les équipements disponibles</p>
         <div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          <div v-for="option in mockOptions" :key="option.id" class="flex items-center space-x-3">
+          <div v-for="option in options" :key="option.id" class="flex items-center space-x-3">
             <input 
               :id="option.id"
               type="checkbox"
@@ -174,9 +177,9 @@
         <router-link to="/agent/biens" class="px-6 py-2 border border-slate-300 rounded-lg hover:bg-slate-50 font-medium">
           Annuler
         </router-link>
-        <button type="submit" class="flex items-center gap-2 px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium transition-colors">
+        <button type="submit" :disabled="isSubmitting" class="flex items-center gap-2 px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium transition-colors disabled:opacity-60 disabled:cursor-not-allowed">
           <Save class="h-4 w-4" />
-          Enregistrer le bien
+          {{ isSubmitting ? 'Enregistrement...' : 'Enregistrer le bien' }}
         </button>
       </div>
     </form>
@@ -184,9 +187,13 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive } from 'vue'
+import { onMounted, reactive, ref } from 'vue'
+import { useRouter } from 'vue-router'
 import { ArrowLeft, Upload, X, Save, Building2 } from 'lucide-vue-next'
 import { mockOptions } from '@/lib/mock-data'
+import { createProperty, getPropertyOptions } from '@/lib/api'
+
+const router = useRouter()
 
 // --- ETAT DU FORMULAIRE ---
 const form = reactive({
@@ -206,6 +213,9 @@ const form = reactive({
 
 const images = ref<string[]>([])
 const fileInput = ref<HTMLInputElement | null>(null)
+const options = ref(mockOptions)
+const isSubmitting = ref(false)
+const errorMessage = ref('')
 
 // --- DONNEES DE REFERENCE ---
 const propertyTypes = [
@@ -231,6 +241,14 @@ const characteristicsFields = [
 ] as const
 
 // --- LOGIQUE ---
+onMounted(async () => {
+  try {
+    options.value = await getPropertyOptions()
+  } catch {
+    options.value = mockOptions
+  }
+})
+
 const triggerFileInput = () => fileInput.value?.click()
 
 const handleFileChange = (event: Event) => {
@@ -251,9 +269,41 @@ const removeImage = (index: number) => {
   images.value.splice(index, 1)
 }
 
-const handleSubmit = () => {
-  const payload = { ...form, images: images.value }
-  console.log('Données envoyées :', payload)
-  // Ici : appel API (axios.post...)
+const handleSubmit = async () => {
+  errorMessage.value = ''
+
+  if (!form.title || !form.type || !form.description || !form.address || !form.city || !form.pricePerNight) {
+    errorMessage.value = 'Remplissez tous les champs obligatoires avant d’enregistrer.'
+    return
+  }
+
+  isSubmitting.value = true
+
+    try {
+      const payload = {
+        title: form.title,
+        type: form.type,
+        description: form.description,
+        address: form.address,
+        city: form.city,
+        postalCode: '',
+        pricePerNight: Number(form.pricePerNight),
+        surface: Number(form.surface ?? 0),
+        bedrooms: Number(form.bedrooms ?? 0),
+        bathrooms: Number(form.bathrooms ?? 0),
+        capacity: Number(form.capacity ?? 0),
+        status: form.status as 'disponible' | 'reserve' | 'maintenance',
+        options: form.selectedOptions,
+        images: images.value,
+      }
+
+      await createProperty(payload)
+
+    router.push('/agent/biens')
+  } catch (error) {
+    errorMessage.value = error instanceof Error ? error.message : 'Impossible d’enregistrer le bien.'
+  } finally {
+    isSubmitting.value = false
+  }
 }
 </script>

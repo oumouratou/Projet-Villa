@@ -12,7 +12,8 @@ class ReclamationController extends Controller
     public function index()
     {
         $user = request()->user();
-        $role = (string) ($user?->role ?? '');
+        $isClient = $this->userHasRole($user, 'client');
+        $isAgent = $this->userHasRole($user, 'agent');
 
         $query = Reclamation::query()
             ->with([
@@ -20,13 +21,13 @@ class ReclamationController extends Controller
                 'client.user:id,first_name,last_name,name,email',
                 'reservation:id,client_id,bien_immobilier_id,date_debut,date_fin,statut',
                 'reservation.bien:id,title,city,price_per_night',
-                'agent:id,name,email,role,status',
+                'agent:id,name,email,status',
             ])
             ->orderByDesc('created_at');
 
-        if ($role === 'client' && $user?->client) {
+        if ($isClient && $user?->client) {
             $query->where('client_id', $user->client->id);
-        } elseif ($role === 'agent' && $user) {
+        } elseif ($isAgent && $user) {
             $query->where(function ($subQuery) use ($user) {
                 $subQuery->where('agent_id', $user->id)->orWhereNull('agent_id');
             });
@@ -50,7 +51,7 @@ class ReclamationController extends Controller
             'description'    => 'required_without:message|string|max:5000',
             'sujet'          => 'required_without:subject|string|max:255',
             'message'        => 'required_without:description|string|max:5000',
-            'statut'         => 'nullable|in:ouverte,en_cours,traitee,fermee',
+            'statut'         => 'nullable|in:en_attente,approuver,refuser',
         ]);
 
         $reservation = Reservation::query()->findOrFail($payload['reservation_id']);
@@ -69,7 +70,7 @@ class ReclamationController extends Controller
             'agent_id'       => $reservation->agent_id,
             'sujet'          => $subject,
             'message'        => $description,
-            'statut'         => $payload['statut'] ?? 'ouverte',
+            'statut'         => 'en_attente',
         ]);
 
         $reclamation->load([
@@ -77,7 +78,7 @@ class ReclamationController extends Controller
             'client.user:id,first_name,last_name,name,email',
             'reservation:id,client_id,bien_immobilier_id,date_debut,date_fin,statut',
             'reservation.bien:id,title,city,price_per_night',
-            'agent:id,name,email,role,status',
+            'agent:id,name,email,status',
         ]);
 
         return response()->json([
@@ -87,12 +88,24 @@ class ReclamationController extends Controller
 
     public function show(Reclamation $reclamation)
     {
+        $user = request()->user();
+        $isClient = $this->userHasRole($user, 'client');
+        $isAgent = $this->userHasRole($user, 'agent');
+
+        // Vérification d'autorisation
+        if ($isClient && $user?->client && $reclamation->client_id !== $user->client->id) {
+            return response()->json(['message' => 'Accès refusé.'], 403);
+        }
+        if ($isAgent && $reclamation->agent_id && $reclamation->agent_id !== $user?->id) {
+            return response()->json(['message' => 'Accès refusé.'], 403);
+        }
+
         $reclamation->load([
             'client:id,user_id,phone,address',
             'client.user:id,first_name,last_name,name,email',
             'reservation:id,client_id,bien_immobilier_id,date_debut,date_fin,statut',
             'reservation.bien:id,title,city,price_per_night',
-            'agent:id,name,email,role,status',
+            'agent:id,name,email,status',
         ]);
 
         return response()->json([
@@ -102,6 +115,14 @@ class ReclamationController extends Controller
 
     public function update(Request $request, Reclamation $reclamation)
     {
+        $user = $request->user();
+        $isAgent = $this->userHasRole($user, 'agent');
+
+        // Seul l'agent assigné peut mettre à jour
+        if ($isAgent && (!$reclamation->agent_id || $reclamation->agent_id !== $user?->id)) {
+            return response()->json(['message' => 'Accès refusé. Seul l\'agent assigné peut modifier cette réclamation.'], 403);
+        }
+
         $payload = $request->validate([
             'client_id'      => 'sometimes|nullable|exists:clients,id',
             'reservation_id' => 'sometimes|nullable|exists:reservations,id',
@@ -110,7 +131,7 @@ class ReclamationController extends Controller
             'description'    => 'sometimes|required|string|max:5000',
             'sujet'          => 'sometimes|required|string|max:255',
             'message'        => 'sometimes|required|string|max:5000',
-            'statut'         => 'sometimes|required|in:ouverte,en_cours,traitee,fermee',
+            'statut'         => 'sometimes|required|in:en_attente,approuver,refuser',
             'agent_response' => 'sometimes|nullable|string|max:5000',
         ]);
 
@@ -130,7 +151,7 @@ class ReclamationController extends Controller
             'client.user:id,first_name,last_name,name,email',
             'reservation:id,client_id,bien_immobilier_id,date_debut,date_fin,statut',
             'reservation.bien:id,title,city,price_per_night',
-            'agent:id,name,email,role,status',
+            'agent:id,name,email,status',
         ]);
 
         // Notification email au client si réponse agent ajoutée
@@ -190,5 +211,20 @@ class ReclamationController extends Controller
             'agent'       => $reclamation->relationLoaded('agent') ? $reclamation->agent : null,
             'created_at'  => optional($reclamation->created_at)->toISOString(),
         ];
+    }
+
+    private function userHasRole($user, string $role): bool
+    {
+        if (! $user) {
+            return false;
+        }
+
+        if (isset($user->role) && is_string($user->role) && $user->role !== '') {
+            return $user->role === $role;
+        }
+
+        $user->loadMissing('roles');
+
+        return $user->roles->contains('name', $role);
     }
 }

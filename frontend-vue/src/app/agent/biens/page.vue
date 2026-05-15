@@ -56,7 +56,7 @@
       >
         <div class="relative aspect-video">
           <img
-            :src="property.images[0]"
+            :src="imageSrc(property.images?.[0])"
             :alt="property.title"
             class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
           />
@@ -129,6 +129,7 @@
 import { ref, computed, onMounted } from 'vue'
 import { Plus, Search, MapPin, Building2, Edit } from 'lucide-vue-next'
 import { getProperties } from '@/lib/api'
+import { resolveImageSrc } from '@/lib/image'
 
 const searchTerm = ref('')
 const statusFilter = ref('all')
@@ -174,4 +175,6 @@ const statusClasses: any = {
   reserve: 'bg-blue-100 text-blue-700',
   maintenance: 'bg-slate-100 text-slate-700'
 }
+
+const imageSrc = (value?: string | null) => resolveImageSrc(value)
 </script>

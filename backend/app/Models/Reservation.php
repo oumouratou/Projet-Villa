@@ -37,8 +37,17 @@ class Reservation extends Model
         return $this->belongsTo(User::class, 'agent_id');
     }
 
+    // Pour que Vue.js reçoive "property" au lieu de "bien"
+    protected $appends = ['property'];
+
+    public function getPropertyAttribute()
+    {
+            return $this->bien;
+    }
+
     public function bien()
     {
-        return $this->belongsTo(BienImmobilier::class);
+        // Vérifie que le nom de la table est bien 'biens' ou 'bien_immobiliers'
+            return $this->belongsTo(BienImmobilier::class, 'bien_immobilier_id');
     }
 }

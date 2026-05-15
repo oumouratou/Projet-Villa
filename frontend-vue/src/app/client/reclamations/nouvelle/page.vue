@@ -17,7 +17,21 @@ const submitError = ref<string | null>(null)
 const reservations = ref<any[]>([])
 const formData = reactive({ reservationId: reservationId.value, subject: '', description: '' })
 
-const clientReservations = computed(() => reservations.value.filter((r) => r.status === 'confirmee'))
+const reservationStatus = (reservation: any) => reservation.statut ?? reservation.status ?? 'en_attente'
+const reservationProperty = (reservation: any) => reservation.property ?? reservation.bien ?? null
+
+const clientReservations = computed(() =>
+  (Array.isArray(reservations.value) ? reservations.value : []).filter((reservation) => reservationStatus(reservation) === 'confirmee')
+)
+
+const reservationLabel = (reservation: any) => {
+  const property = reservationProperty(reservation)
+  const title = property?.title ?? property?.titre ?? `Réservation #${reservation.id}`
+  const dateValue = reservation.date_debut ?? reservation.start_date ?? reservation.startDate
+  const formattedDate = dateValue ? new Date(dateValue).toLocaleDateString('fr-FR') : 'date inconnue'
+
+  return `${title} - ${formattedDate}`
+}
 
 const validate = () => {
   const newErrors: Record<string, string> = {}
@@ -42,6 +56,9 @@ const handleSubmit = async (e: Event) => {
       description: formData.description,
     })
     isSuccess.value = true
+    setTimeout(() => {
+      router.push('/client/reclamations')
+    }, 1500)
   } catch (error) {
     submitError.value = error instanceof Error ? error.message : 'Une erreur est survenue.'
   } finally {
@@ -71,7 +88,8 @@ onMounted(async () => {
   }
 
   try {
-    reservations.value = await getList('/reservations')
+    const response = await getList('/reservations')
+    reservations.value = Array.isArray(response) ? response : ((response as any)?.data ?? [])
   } catch {
     reservations.value = []
   }
@@ -92,7 +110,7 @@ onMounted(async () => {
 
     <form v-else class="max-w-2xl" @submit="handleSubmit">
       <div class="space-y-6">
-        <div class="rounded-xl border border-border bg-card p-5"><h3 class="mb-4 font-semibold">Reservation concernee</h3><select v-model="formData.reservationId" class="w-full rounded-lg border px-4 py-2.5" :class="errors.reservationId ? 'border-red-500' : 'border-input'"><option value="">Selectionner une reservation...</option><option v-for="res in clientReservations" :key="res.id" :value="res.id">{{ res.property?.title }} - {{ new Date(res.start_date || res.startDate).toLocaleDateString('fr-FR') }}</option></select><p v-if="errors.reservationId" class="mt-1 text-sm text-red-600">{{ errors.reservationId }}</p><p class="mt-2 text-xs text-muted-foreground">Choisissez une reservation afin que l'agent puisse traiter votre demande.</p></div>
+        <div class="rounded-xl border border-border bg-card p-5"><h3 class="mb-4 font-semibold">Réservation concernée</h3><select v-model="formData.reservationId" class="w-full rounded-lg border px-4 py-2.5" :class="errors.reservationId ? 'border-red-500' : 'border-input'"><option value="">Sélectionner une réservation...</option><option v-for="res in clientReservations" :key="res.id" :value="res.id">{{ reservationLabel(res) }}</option></select><p v-if="errors.reservationId" class="mt-1 text-sm text-red-600">{{ errors.reservationId }}</p><p v-if="!clientReservations.length" class="mt-2 text-xs text-amber-700">Aucune réservation confirmée disponible pour créer une réclamation.</p><p class="mt-2 text-xs text-muted-foreground">Choisissez une reservation afin que l'agent puisse traiter votre demande.</p></div>
         <div class="rounded-xl border border-border bg-card p-5"><h3 class="mb-4 font-semibold">Sujet de la reclamation</h3><input v-model="formData.subject" type="text" class="w-full rounded-lg border px-4 py-2.5" :class="errors.subject ? 'border-red-500' : 'border-input'" placeholder="Ex: Probleme de chauffage, Fuite d'eau..." /><p v-if="errors.subject" class="mt-1 text-sm text-red-600">{{ errors.subject }}</p></div>
         <div class="rounded-xl border border-border bg-card p-5"><h3 class="mb-4 font-semibold">Description detaillee</h3><textarea v-model="formData.description" rows="6" class="w-full resize-none rounded-lg border px-4 py-2.5" :class="errors.description ? 'border-red-500' : 'border-input'" placeholder="Decrivez votre probleme en detail..."></textarea><p v-if="errors.description" class="mt-1 text-sm text-red-600">{{ errors.description }}</p><p class="mt-2 text-xs text-muted-foreground">{{ formData.description.length }}/500 caracteres</p></div>
         <p v-if="submitError" class="rounded-lg border border-red-200 bg-red-50 px-4 py-2 text-sm text-red-700">{{ submitError }}</p>

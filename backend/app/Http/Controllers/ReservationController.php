@@ -14,20 +14,21 @@ class ReservationController extends Controller
     public function index()
     {
         $user = request()->user();
-        $role = (string) ($user?->role ?? '');
+        $isClient = $this->userHasRole($user, 'client');
+        $isAgent = $this->userHasRole($user, 'agent');
 
         $query = Reservation::query()
             ->with([
                 'bien:id,title,city,price_per_night,agent_id',
                 'client:id,user_id,phone,address',
                 'client.user:id,first_name,last_name,name,email',
-                'agent:id,name,email,role,status',
+                'agent:id,name,email,status',
             ])
             ->orderByDesc('created_at');
 
-        if ($role === 'client' && $user?->client) {
+        if ($isClient && $user?->client) {
             $query->where('client_id', $user->client->id);
-        } elseif ($role === 'agent' && $user) {
+        } elseif ($isAgent && $user) {
             $query->where(function ($subQuery) use ($user) {
                 $subQuery->where('agent_id', $user->id)->orWhereNull('agent_id');
             });
@@ -90,8 +91,8 @@ class ReservationController extends Controller
             ->where('bien_immobilier_id', $bien->id)
             ->whereIn('statut', ['en_attente', 'confirmee'])
             ->where(function ($query) use ($start, $end) {
-                $query->where('date_debut', '<=', $end->toDateString())
-                      ->where('date_fin', '>=', $start->toDateString());
+                $query->where('date_debut', '<', $end->toDateString())
+                      ->where('date_fin', '>', $start->toDateString());
             })->exists();
 
         if ($hasOverlap) {
@@ -126,7 +127,7 @@ class ReservationController extends Controller
             'bien:id,title,city,price_per_night,agent_id',
             'client:id,user_id,phone,address',
             'client.user:id,first_name,last_name,name,email',
-            'agent:id,name,email,role,status',
+            'agent:id,name,email,status',
         ]);
         return response()->json(['data' => $this->serializeReservation($reservation)]);
     }
@@ -154,7 +155,7 @@ class ReservationController extends Controller
         }
 
         $user = $request->user();
-        if ($user && $user->role === 'agent') {
+        if ($user && $this->userHasRole($user, 'agent')) {
             $this->authorizeReservationAccess($reservation);
             $payload = array_intersect_key($payload, array_flip(['statut', 'commentaire_agent']));
         }
@@ -166,7 +167,7 @@ class ReservationController extends Controller
             'bien:id,title,city,price_per_night,agent_id',
             'client:id,user_id,phone,address',
             'client.user:id,first_name,last_name,name,email',
-            'agent:id,name,email,role,status',
+            'agent:id,name,email,status',
         ]);
 
         // Notification email si statut changé
@@ -255,12 +256,27 @@ class ReservationController extends Controller
     private function authorizeReservationAccess(Reservation $reservation): void
     {
         $user = request()->user();
-        $role = (string) ($user?->role ?? '');
-        if ($role === 'client' && (! $user?->client || (int) $reservation->client_id !== (int) $user->client->id)) {
+        if ($this->userHasRole($user, 'client') && (! $user?->client || (int) $reservation->client_id !== (int) $user->client->id)) {
             abort(response()->json(['message' => 'Accès refusé.'], 403));
         }
-        if ($role === 'agent' && $user && $reservation->agent_id !== null && (int) $reservation->agent_id !== (int) $user->id) {
+        if ($this->userHasRole($user, 'agent') && $user && $reservation->agent_id !== null && (int) $reservation->agent_id !== (int) $user->id) {
             abort(response()->json(['message' => 'Accès refusé.'], 403));
         }
+    }
+
+    private function userHasRole($user, string $role): bool
+    {
+        if (! $user) {
+            return false;
+        }
+
+        // Compatibilite avec un ancien schema qui stockait un role direct sur users.
+        if (isset($user->role) && is_string($user->role) && $user->role !== '') {
+            return $user->role === $role;
+        }
+
+        $user->loadMissing('roles');
+
+        return $user->roles->contains('name', $role);
     }
 }

@@ -34,10 +34,13 @@ class BienImmobilierController extends Controller
             'capacity' => 'required|integer|min:0',
             'status' => 'required|string|max:50',
             'image_url' => 'nullable|string|max:2048',
-            'agent_id' => 'required|exists:users,id',
+            'agent_id' => 'sometimes|exists:users,id',
         ]);
 
-        $bien = BienImmobilier::create($request->only([
+        // If a user is authenticated, prefer their id as the agent
+        $agentId = $request->user()?->id ?? $request->input('agent_id');
+
+        $data = $request->only([
             'title',
             'type',
             'description',
@@ -51,7 +54,14 @@ class BienImmobilierController extends Controller
             'status',
             'image_url',
             'agent_id',
-        ]));
+        ]);
+
+        // Ensure agent_id present in data if available
+        if ($agentId) {
+            $data['agent_id'] = $agentId;
+        }
+
+        $bien = BienImmobilier::create($data);
 
         return response()->json([
             'data' => $this->serializeBien($bien->load('options')),
@@ -80,10 +90,10 @@ class BienImmobilierController extends Controller
             'capacity' => 'sometimes|required|integer|min:0',
             'status' => 'sometimes|required|string|max:50',
             'image_url' => 'nullable|string|max:2048',
-            'agent_id' => 'sometimes|required|exists:users,id',
+            'agent_id' => 'sometimes|exists:users,id',
         ]);
 
-        $bien->update($request->only([
+        $data = $request->only([
             'title',
             'type',
             'description',
@@ -97,7 +107,15 @@ class BienImmobilierController extends Controller
             'status',
             'image_url',
             'agent_id',
-        ]));
+        ]);
+
+        // If authenticated user, prefer their id for agent
+        $agentId = $request->user()?->id ?? $request->input('agent_id');
+        if ($agentId) {
+            $data['agent_id'] = $agentId;
+        }
+
+        $bien->update($data);
 
         return response()->json([
             'data' => $this->serializeBien($bien->fresh()->load('options')),

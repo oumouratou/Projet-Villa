@@ -5,6 +5,7 @@ import { useRoute } from 'vue-router'
 import { ArrowLeft, Calendar, MapPin, CheckCircle } from 'lucide-vue-next'
 import DashboardHeader from '@/components/DashboardHeader.vue'
 import { createReservation, getList } from '@/lib/api'
+import { resolveImageSrc } from '@/lib/image'
 
 const route = useRoute()
 const router = useRouter()
@@ -17,6 +18,7 @@ const formData = reactive({ propertyId: propertyId.value, startDate: '', endDate
 
 const selectedProperty = computed(() => properties.value.find((p) => p.id === formData.propertyId) || null)
 const availableProperties = computed(() => properties.value.filter((p) => p.status === 'disponible'))
+const imageSrc = (value?: string | null) => resolveImageSrc(value)
 
 const nights = computed(() => {
   if (!formData.startDate || !formData.endDate) return 0
@@ -59,6 +61,10 @@ const handleSubmit = async (e: Event) => {
       endDate: formData.endDate,
     })
     isSuccess.value = true
+    // Redirection automatique après 2 secondes
+    setTimeout(() => {
+      router.push('/client/reservations')
+    }, 2000)
   } catch (error) {
     errorMessage.value = error instanceof Error ? error.message : 'Une erreur est survenue.'
   } finally {
@@ -91,7 +97,7 @@ onMounted(async () => {
       <div class="grid grid-cols-1 gap-6 lg:grid-cols-5">
         <div class="space-y-6 lg:col-span-3">
           <div v-if="!propertyId" class="rounded-xl border border-border bg-card p-5"><h3 class="mb-4 font-semibold">Selectionnez un bien</h3><select v-model="formData.propertyId" required class="w-full rounded-lg border border-input bg-background px-4 py-2.5"><option value="">Choisir un bien...</option><option v-for="p in availableProperties" :key="p.id" :value="p.id">{{ p.title }} - {{ p.city }} ({{ p.price }} FCFA/nuit)</option></select></div>
-          <div v-if="selectedProperty" class="overflow-hidden rounded-xl border border-border bg-card"><div class="h-40"><img :src="selectedProperty.images?.[0] || '/placeholder.svg'" :alt="selectedProperty.title" class="h-full w-full object-cover" /></div><div class="p-4"><h3 class="font-semibold">{{ selectedProperty.title }}</h3><p class="mt-1 flex items-center gap-1 text-sm text-muted-foreground"><MapPin class="h-4 w-4" />{{ selectedProperty.city }}</p><p class="mt-2 font-semibold text-primary">{{ selectedProperty.price.toLocaleString() }} FCFA/nuit</p></div></div>
+          <div v-if="selectedProperty" class="overflow-hidden rounded-xl border border-border bg-card"><div class="h-40"><img :src="imageSrc(selectedProperty.images?.[0])" :alt="selectedProperty.title" class="h-full w-full object-cover" /></div><div class="p-4"><h3 class="font-semibold">{{ selectedProperty.title }}</h3><p class="mt-1 flex items-center gap-1 text-sm text-muted-foreground"><MapPin class="h-4 w-4" />{{ selectedProperty.city }}</p><p class="mt-2 font-semibold text-primary">{{ selectedProperty.price.toLocaleString() }} FCFA/nuit</p></div></div>
           <div class="rounded-xl border border-border bg-card p-5"><h3 class="mb-4 font-semibold">Periode de location</h3><div class="grid grid-cols-2 gap-4"><div><label class="mb-2 block text-sm font-medium">Date de debut</label><div class="relative"><Calendar class="absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-muted-foreground" /><input v-model="formData.startDate" type="date" required class="w-full rounded-lg border border-input bg-background py-2.5 pl-10 pr-4" /></div></div><div><label class="mb-2 block text-sm font-medium">Date de fin</label><div class="relative"><Calendar class="absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-muted-foreground" /><input v-model="formData.endDate" type="date" required class="w-full rounded-lg border border-input bg-background py-2.5 pl-10 pr-4" /></div></div></div></div>
           <div class="rounded-xl border border-border bg-card p-5"><h3 class="mb-4 font-semibold">Message (optionnel)</h3><textarea v-model="formData.message" rows="4" class="w-full resize-none rounded-lg border border-input bg-background px-4 py-2.5" placeholder="Ajoutez un message pour l'agent..."></textarea></div>
         </div>

@@ -23,11 +23,11 @@ const activeHeroIndex = ref(0)
 const intervalId = ref<number | null>(null)
 
 const fallbackHeroImages = [
-  'https://images.unsplash.com/photo-1512917774080-9991f1c4c750?w=1400&h=900&fit=crop',
-  'https://images.unsplash.com/photo-1494526585095-c41746248156?w=1400&h=900&fit=crop',
-  'https://images.unsplash.com/photo-1505693416388-ac5ce068fe85?w=1400&h=900&fit=crop',
-  'https://images.unsplash.com/photo-1600585154340-be6161a56a0c?w=1400&h=900&fit=crop',
-  'https://images.unsplash.com/photo-1613977257592-4871e5fcd7c4?w=1400&h=900&fit=crop',
+  '/placeholder.svg',
+  '/placeholder.svg',
+  '/placeholder.svg',
+  '/placeholder.svg',
+  '/placeholder.svg',
 ]
 
 const heroImages = computed(() => {
@@ -327,7 +327,7 @@ const setHeroSlide = (index: number) => {
             </div>
             <div class="grid gap-4 sm:grid-cols-2">
               <div v-for="property in spotlightProperties" :key="property.id" class="overflow-hidden rounded-[1.5rem] border border-white/10 bg-white/8 backdrop-blur">
-                <img :src="property.images[0]" :alt="property.title" class="h-44 w-full object-cover" />
+                <img :src="property.images?.[0] || '/placeholder.svg'" :alt="property.title" class="h-44 w-full object-cover" />
                 <div class="p-4">
                   <p class="text-sm font-semibold text-white">{{ property.title }}</p>
                   <p class="mt-1 text-xs text-white/65">{{ property.city }} · {{ property.images.length }} visuels disponibles</p>

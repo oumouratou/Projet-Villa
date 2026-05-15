@@ -9,6 +9,10 @@ class Option extends Model
 {
     use HasFactory;
 
+    protected $fillable = [
+        'name',
+    ];
+
     public function biens()
     {
         return $this->belongsToMany(BienImmobilier::class, 'bien_option');

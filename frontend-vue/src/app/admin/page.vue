@@ -213,7 +213,7 @@ onMounted(async () => {
   try { properties.value = await getList('/properties') } catch { properties.value = [] }
   try { reservations.value = await getList('/reservations') } catch { reservations.value = [] }
   try { clients.value = await getList('/clients') } catch { clients.value = [] }
-  try { complaints.value = await getList('/complaints') } catch { complaints.value = [] }
+  try { complaints.value = await getList('/reclamations') } catch { complaints.value = [] }
   try { agents.value = (await getList('/users')).filter((user: any) => user.role === 'agent') } catch { agents.value = [] }
 })
 </script>

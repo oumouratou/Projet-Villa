@@ -4,6 +4,7 @@ import { Search, SlidersHorizontal, MapPin, Bed, Bath, Maximize, X, Calendar } f
 import DashboardHeader from '@/components/DashboardHeader.vue'
 import { getList } from '@/lib/api'
 import { getStoredToken } from '@/lib/session'
+import { resolveImageSrc } from '@/lib/image'
 
 const searchCity = ref('')
 const priceMin = ref('')
@@ -16,6 +17,7 @@ const options = ref<any[]>([])
 const isLoggedIn = computed(() => Boolean(getStoredToken()))
 
 const availableProperties = computed(() => properties.value.filter((p) => p.status === 'disponible'))
+const imageSrc = (value?: string | null) => resolveImageSrc(value)
 
 const filteredProperties = computed(() => {
   let result = [...availableProperties.value]
@@ -120,7 +122,7 @@ onMounted(async () => {
     <div v-if="filteredProperties.length > 0" class="grid grid-cols-1 gap-6 md:grid-cols-2 xl:grid-cols-3">
       <article v-for="property in filteredProperties" :key="property.id" class="overflow-hidden rounded-xl border border-border bg-card">
         <div class="relative h-48">
-          <img :src="property.images?.[0] || '/placeholder.svg'" :alt="property.title" class="h-full w-full object-cover" />
+          <img :src="imageSrc(property.images?.[0])" :alt="property.title" class="h-full w-full object-cover" />
           <div class="absolute bottom-3 left-3 rounded-lg bg-primary px-3 py-1 text-sm font-semibold text-primary-foreground">{{ property.price.toLocaleString() }} FCFA/nuit</div>
         </div>
         <div class="p-4">

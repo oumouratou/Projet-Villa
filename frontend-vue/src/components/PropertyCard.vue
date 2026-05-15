@@ -3,6 +3,7 @@ import { computed } from 'vue'
 import { RouterLink } from 'vue-router'
 import { ArrowRight, BedDouble, Bath, MapPin, Maximize, LogIn, Calendar, Lock } from 'lucide-vue-next'
 import { getStoredToken } from '@/lib/session'
+import { resolveImageSrc } from '@/lib/image'
 
 const props = defineProps<{ property: any }>()
 
@@ -21,8 +22,9 @@ const reserveUrl = computed(() =>
   `/client/reservations/nouvelle?bien=${props.property.id}`
 )
 
-const primaryImage = (images: string[]) =>
-  images?.[0] || 'https://images.unsplash.com/photo-1613490493576-7fde63acd811?w=600&h=400&fit=crop'
+const primaryImage = (images: string[]) => {
+  return resolveImageSrc(images?.[0])
+}
 </script>
 
 <template>

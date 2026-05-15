@@ -9,7 +9,9 @@ class ClientController extends Controller
 {
     public function index()
     {
-        return Client::all();
+        return response()->json([
+            'data' => Client::with('user')->get(),
+        ]);
     }
 
     public function store(Request $request)
@@ -25,7 +27,9 @@ class ClientController extends Controller
 
     public function show(Client $client)
     {
-        return $client;
+        return response()->json([
+            'data' => $client->load('user'),
+        ]);
     }
 
     public function update(Request $request, Client $client)
@@ -38,13 +42,15 @@ class ClientController extends Controller
 
         $client->update($request->all());
 
-        return $client;
+        return response()->json([
+            'data' => $client->fresh()->load('user'),
+        ]);
     }
 
     public function destroy(Client $client)
     {
         $client->delete();
 
-        return response()->json(null, 204);
+        return response()->json(['data' => true], 200);
     }
 }

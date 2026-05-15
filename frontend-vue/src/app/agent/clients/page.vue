@@ -8,20 +8,42 @@ const reservations = ref<any[]>([])
 
 const searchTerm = ref('')
 
+const formatDate = (value: unknown) => {
+  if (!value) return '—'
+  const date = value instanceof Date ? value : new Date(value as string)
+  return Number.isNaN(date.getTime()) ? '—' : date.toLocaleDateString('fr-FR')
+}
+
+const getClientUser = (client: any) => client?.user ?? client ?? {}
+
 const filteredClients = computed(() => {
   const term = searchTerm.value.toLowerCase()
   return clients.value.filter((client) => {
-    const fullName = `${client.first_name ?? client.firstName} ${client.last_name ?? client.lastName}`.toLowerCase()
+    const user = getClientUser(client)
+    const firstName = user.first_name ?? user.firstName ?? ''
+    const lastName = user.last_name ?? user.lastName ?? ''
+    const email = user.email ?? ''
+    const fullName = `${firstName} ${lastName}`.toLowerCase()
     return (
       fullName.includes(term) ||
-      client.email.toLowerCase().includes(term) ||
-      client.phone.includes(searchTerm.value)
+      email.toLowerCase().includes(term) ||
+      String(client.phone ?? user.phone ?? '').includes(searchTerm.value)
     )
   })
 })
 
 const getClientReservationsCount = (clientId: string) =>
   reservations.value.filter((reservation) => String(reservation.client_id || reservation.clientId) === String(clientId)).length
+
+const getClientDisplayName = (client: any) => {
+  const user = getClientUser(client)
+  const firstName = user.first_name ?? user.firstName ?? ''
+  const lastName = user.last_name ?? user.lastName ?? ''
+  const fullName = `${firstName} ${lastName}`.trim()
+  return user.name ?? fullName ?? 'Client inconnu'
+}
+
+const getClientNumber = (index: number) => `N° ${String(index + 1).padStart(3, '0')}`
 
 onMounted(async () => {
   clients.value = await getList('/clients')
@@ -70,7 +92,7 @@ onMounted(async () => {
           </div>
           <div>
             <p class="text-2xl font-bold">
-              {{ clients.filter((c) => reservations.some((r) => String(r.client_id || r.clientId) === String(c.id))).length }}
+              {{ clients.filter((c) => reservations.some((r) => String(r.client_id || r.clientId) === String(c.id ?? c.user?.id))).length }}
             </p>
             <p class="text-sm text-muted-foreground">Clients actifs</p>
           </div>
@@ -104,40 +126,43 @@ onMounted(async () => {
           </thead>
           <tbody>
             <tr
-              v-for="client in filteredClients"
+              v-for="(client, index) in filteredClients"
               :key="client.id"
               class="border-b border-border/60 hover:bg-muted/40"
             >
               <td class="px-3 py-3">
                 <div class="flex items-center gap-3">
                   <div class="flex h-9 w-9 items-center justify-center rounded-full bg-primary/10 text-primary">
-                    {{ (client.first_name ?? client.firstName)[0] }}{{ (client.last_name ?? client.lastName)[0] }}
+                    {{ (getClientUser(client).first_name ?? getClientUser(client).firstName ?? 'C')[0] }}{{ (getClientUser(client).last_name ?? getClientUser(client).lastName ?? 'C')[0] }}
                   </div>
-                  <p class="font-medium">{{ client.first_name ?? client.firstName }} {{ client.last_name ?? client.lastName }}</p>
+                  <div>
+                    <p class="font-medium">{{ getClientDisplayName(client) }}</p>
+                    <p class="text-xs text-muted-foreground">{{ getClientNumber(index) }}</p>
+                  </div>
                 </div>
               </td>
               <td class="px-3 py-3">
-                <p class="flex items-center gap-2"><Mail class="h-3 w-3 text-muted-foreground" />{{ client.email }}</p>
-                <p class="flex items-center gap-2 text-muted-foreground"><Phone class="h-3 w-3" />{{ client.phone }}</p>
+                <p class="flex items-center gap-2"><Mail class="h-3 w-3 text-muted-foreground" />{{ getClientUser(client).email ?? client.email ?? '—' }}</p>
+                <p class="flex items-center gap-2 text-muted-foreground"><Phone class="h-3 w-3" />{{ client.phone ?? getClientUser(client).phone ?? '—' }}</p>
               </td>
-              <td class="px-3 py-3">{{ new Date(client.created_at || client.createdAt).toLocaleDateString('fr-FR') }}</td>
+              <td class="px-3 py-3">{{ formatDate(getClientUser(client).created_at ?? client.created_at ?? client.createdAt) }}</td>
               <td class="px-3 py-3">
                 <span class="rounded bg-secondary px-2 py-1 text-xs">
-                  {{ getClientReservationsCount(client.id) }} reservation(s)
+                  {{ getClientReservationsCount(String(client.id ?? getClientUser(client).id ?? '')) }} reservation(s)
                 </span>
               </td>
               <td class="px-3 py-3">
                 <span
                   :class="[
                     'rounded-full px-2 py-1 text-xs',
-                    client.status === 'actif' ? 'bg-green-100 text-green-700' : 'bg-slate-100 text-slate-600',
+                    (client.status ?? getClientUser(client).status) === 'actif' ? 'bg-green-100 text-green-700' : 'bg-slate-100 text-slate-600',
                   ]"
                 >
-                  {{ client.status }}
+                  {{ client.status ?? getClientUser(client).status ?? 'actif' }}
                 </span>
               </td>
               <td class="px-3 py-3 text-right">
-                <RouterLink :to="`/agent/clients/${client.id}`" class="inline-flex items-center gap-2 text-primary">
+                <RouterLink :to="`/agent/clients/${client.id ?? getClientUser(client).id}`" class="inline-flex items-center gap-2 text-primary">
                   <Eye class="h-4 w-4" />
                   Voir
                 </RouterLink>

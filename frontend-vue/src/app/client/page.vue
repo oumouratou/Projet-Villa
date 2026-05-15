@@ -7,6 +7,7 @@ import {
 } from 'lucide-vue-next'
 import { getList } from '@/lib/api'
 import { getStoredUser } from '@/lib/session'
+import { resolveImageSrc } from '@/lib/image'
 
 const router = useRouter()
 
@@ -20,7 +21,6 @@ const userName    = computed(() => currentUser.value?.name ?? 'Client')
 
 const pending   = computed(() => reservations.value.filter(r => r.status === 'en_attente'))
 const confirmed = computed(() => reservations.value.filter(r => r.status === 'confirmee'))
-const refused   = computed(() => reservations.value.filter(r => r.status === 'refusee'))
 const activeComplaints = computed(() =>
   complaints.value.filter(c => c.status === 'ouverte' || c.status === 'en_cours')
 )
@@ -69,6 +69,8 @@ const statusLabel: Record<string, string> = {
   refusee:    'Refusée',
   annulee:    'Annulée',
 }
+
+const imageSrc = (value?: string | null) => resolveImageSrc(value)
 const complaintBadge: Record<string, string> = {
   ouverte:  'bg-blue-100 text-blue-800',
   en_cours: 'bg-amber-100 text-amber-800',
@@ -82,7 +84,7 @@ const complaintLabel: Record<string, string> = {
 
 onMounted(async () => {
   try { reservations.value = await getList('/reservations') } catch { reservations.value = [] } finally { loadingRes.value = false }
-  try { complaints.value   = await getList('/complaints')   } catch { complaints.value = [] }   finally { loadingCom.value = false }
+  try { complaints.value   = await getList('/reclamations')   } catch { complaints.value = [] }   finally { loadingCom.value = false }
 })
 </script>
 
@@ -161,8 +163,8 @@ onMounted(async () => {
               @click="router.push(`/client/reservations/${r.id}`)"
               class="flex w-full items-center gap-4 p-4 text-left hover:bg-slate-50 transition-colors">
               <div class="relative h-14 w-14 flex-shrink-0 overflow-hidden rounded-xl bg-slate-100">
-                <img v-if="r.property?.images?.[0]" :src="r.property.images[0]" class="h-full w-full object-cover" :alt="r.property?.title" />
-                <Home v-else class="m-auto mt-3.5 h-6 w-6 text-slate-400" />
+                <img :src="imageSrc(r.property?.images?.[0])" class="h-full w-full object-cover" :alt="r.property?.title || 'Bien'" />
+                <Home v-if="!r.property?.images?.[0]" class="m-auto mt-3.5 h-6 w-6 text-slate-400" />
               </div>
               <div class="min-w-0 flex-1">
                 <p class="truncate font-semibold text-slate-950">{{ r.property?.title ?? 'Villa #' + r.id }}</p>

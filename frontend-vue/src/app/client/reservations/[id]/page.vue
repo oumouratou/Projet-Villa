@@ -7,6 +7,7 @@ import {
 } from 'lucide-vue-next'
 import DashboardHeader from '@/components/DashboardHeader.vue'
 import { getDetail } from '@/lib/api'
+import { resolveImageSrc } from '@/lib/image'
 
 type ReservationStatus = 'en_attente' | 'confirmee' | 'refusee' | 'annulee'
 
@@ -48,6 +49,8 @@ const nights = computed(() => {
 const reclamationUrl = computed(() =>
   `/client/reclamations/nouvelle?reservation=${reservation.value?.id}`
 )
+
+const imageSrc = (value?: string | null) => resolveImageSrc(value)
 
 onMounted(async () => {
   try {
@@ -107,7 +110,7 @@ onMounted(async () => {
         <div class="overflow-hidden rounded-xl border border-border bg-card">
           <div class="relative h-52">
             <img
-              :src="reservation.property?.images?.[0] || 'https://images.unsplash.com/photo-1613490493576-7fde63acd811?w=800&h=400&fit=crop'"
+              :src="imageSrc(reservation.property?.images?.[0])"
               :alt="reservation.property?.title || 'Villa'"
               class="h-full w-full object-cover"
             />

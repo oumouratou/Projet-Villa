@@ -8,7 +8,7 @@ import {
 import { getList } from '@/lib/api'
 import { getStoredToken } from '@/lib/session'
 
-const API_BASE = import.meta.env.VITE_API_URL ?? 'http://localhost:8000/api'
+const API_BASE = import.meta.env.VITE_API_URL ?? 'http://127.0.0.1:8000/api'
 
 const options    = ref<any[]>([])
 const loading    = ref(true)
@@ -43,9 +43,26 @@ const filtered = computed(() =>
 )
 
 const authHeaders = () => ({
+  Accept: 'application/json',
   'Content-Type': 'application/json',
   Authorization: `Bearer ${getStoredToken()}`,
 })
+
+const readJsonResponse = async (response: Response) => {
+  const text = await response.text()
+
+  if (!text.trim()) {
+    return null
+  }
+
+  try {
+    return JSON.parse(text)
+  } catch {
+    throw new Error(text.includes('<!DOCTYPE')
+      ? 'Le serveur a renvoyé une page HTML au lieu du JSON attendu.'
+      : text)
+  }
+}
 
 const showToast = (msg: string, type: 'ok' | 'err') => {
   toast.value = { msg, type }
@@ -88,8 +105,8 @@ const saveOption = async () => {
       headers: authHeaders(),
       body: JSON.stringify({ name: form.name.trim(), icon: form.icon, description: form.description })
     })
-    const json = await res.json()
-    if (!res.ok) throw new Error(json.message ?? 'Erreur')
+    const json = await readJsonResponse(res)
+    if (!res.ok) throw new Error(json?.message ?? 'Erreur')
     const saved = json.data
     if (editingId.value) {
       const idx = options.value.findIndex(o => String(o.id) === editingId.value)
@@ -111,7 +128,10 @@ const deleteOption = async (id: string) => {
     const res = await fetch(`${API_BASE}/options/${id}`, {
       method: 'DELETE', headers: authHeaders()
     })
-    if (!res.ok) throw new Error('Erreur')
+    if (!res.ok) {
+      const json = await readJsonResponse(res)
+      throw new Error(json?.message ?? 'Erreur')
+    }
     options.value = options.value.filter(o => String(o.id) !== id)
     showToast('Option supprimée', 'ok')
   } catch (err) {

@@ -10,6 +10,7 @@ use App\Http\Controllers\BienImmobilierController;
 use App\Http\Controllers\OptionController;
 use App\Http\Controllers\ReservationController;
 use App\Http\Controllers\ReclamationController;
+use App\Http\Controllers\Api\RealEstateController;
 use App\Http\Controllers\UserController;
 use App\Http\Controllers\Api\NotificationController;
 
@@ -25,13 +26,16 @@ Route::prefix('auth')->group(function () {
     Route::get('/me', [AuthController::class, 'me'])->middleware('auth:sanctum');
 });
 
-// Routes publiques
-Route::apiResource('roles', RoleController::class);
-Route::apiResource('permissions', PermissionController::class);
-Route::apiResource('clients', ClientController::class);
-Route::apiResource('biens', BienImmobilierController::class);
-Route::apiResource('properties', BienImmobilierController::class);
-Route::apiResource('options', OptionController::class);
+// Routes publiques (index + show)
+Route::apiResource('roles', RoleController::class)->only(['index','show']);
+Route::apiResource('permissions', PermissionController::class)->only(['index','show']);
+Route::apiResource('clients', ClientController::class)->only(['index','show']);
+Route::get('biens', [BienImmobilierController::class, 'index']);
+Route::get('biens/{bien}', [BienImmobilierController::class, 'show']);
+// expose properties (same controller) but keep route param name consistent with controller ($bien)
+Route::get('properties', [BienImmobilierController::class, 'index']);
+Route::get('properties/{bien}', [BienImmobilierController::class, 'show']);
+Route::apiResource('options', OptionController::class)->only(['index','show']);
 
 // Routes protégées
 Route::middleware('auth:sanctum')->group(function () {
@@ -49,13 +53,31 @@ Route::middleware('auth:sanctum')->group(function () {
 
     // Notifications
     Route::get('/notifications/summary', [NotificationController::class, 'summary']);
+
+    // Protected bien/property actions (create/update/delete)
+    Route::post('biens', [BienImmobilierController::class, 'store']);
+    Route::put('biens/{bien}', [BienImmobilierController::class, 'update']);
+    Route::delete('biens/{bien}', [BienImmobilierController::class, 'destroy']);
+
+    Route::post('properties', [BienImmobilierController::class, 'store']);
+    Route::put('properties/{bien}', [BienImmobilierController::class, 'update']);
+    Route::delete('properties/{bien}', [BienImmobilierController::class, 'destroy']);
+    // Protected options CRUD
+    Route::post('options', [OptionController::class, 'store']);
+    Route::put('options/{option}', [OptionController::class, 'update']);
+    Route::delete('options/{option}', [OptionController::class, 'destroy']);
+    // Uploads
+    Route::post('uploads', [\App\Http\Controllers\UploadController::class, 'store']);
 });
 
 // Versioned v1
 Route::prefix('v1')->group(function () {
-    Route::apiResource('biens', BienImmobilierController::class);
-    Route::apiResource('properties', BienImmobilierController::class);
-    Route::apiResource('options', OptionController::class);
+    // v1 public index + show
+    Route::get('biens', [BienImmobilierController::class, 'index']);
+    Route::get('biens/{bien}', [BienImmobilierController::class, 'show']);
+    Route::get('properties', [BienImmobilierController::class, 'index']);
+    Route::get('properties/{bien}', [BienImmobilierController::class, 'show']);
+    Route::apiResource('options', OptionController::class)->only(['index','show']);
     Route::apiResource('roles', RoleController::class);
     Route::apiResource('clients', ClientController::class);
 
@@ -67,10 +89,22 @@ Route::prefix('v1')->group(function () {
     });
 
     Route::middleware('auth:sanctum')->group(function () {
+        Route::get('/dashboard/stats', [RealEstateController::class, 'dashboardStats']);
         Route::apiResource('reservations', ReservationController::class);
         Route::apiResource('reclamations', ReclamationController::class);
         Route::apiResource('complaints', ReclamationController::class);
         Route::apiResource('users', UserController::class);
         Route::get('/notifications/summary', [NotificationController::class, 'summary']);
+
+        // Protected v1 actions for biens/properties
+        Route::post('biens', [BienImmobilierController::class, 'store']);
+        Route::put('biens/{bien}', [BienImmobilierController::class, 'update']);
+        Route::delete('biens/{bien}', [BienImmobilierController::class, 'destroy']);
+
+        Route::post('properties', [BienImmobilierController::class, 'store']);
+        Route::put('properties/{bien}', [BienImmobilierController::class, 'update']);
+        Route::delete('properties/{bien}', [BienImmobilierController::class, 'destroy']);
+        // Uploads v1
+        Route::post('uploads', [\App\Http\Controllers\UploadController::class, 'store']);
     });
 });

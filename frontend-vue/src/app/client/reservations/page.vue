@@ -3,29 +3,41 @@ import { computed, onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import {
   Calendar, Home, Search, Filter, Eye, Clock,
-  CheckCircle, XCircle, Ban, MapPin, MessageSquare, Plus
+  CheckCircle, XCircle, Ban, MapPin, Plus
 } from 'lucide-vue-next'
 import DashboardHeader from '@/components/DashboardHeader.vue'
 import { getList } from '@/lib/api'
+import { resolveImageSrc } from '@/lib/image'
 
-const router      = useRouter()
+const router = useRouter()
 const reservations = ref<any[]>([])
-const loading      = ref(true)
+const loading = ref(true)
 const statusFilter = ref('all')
-const searchQuery  = ref('')
+const searchQuery = ref('')
 
-// Compteurs réactifs
-const total     = computed(() => reservations.value.length)
-const pending   = computed(() => reservations.value.filter(r => r.status === 'en_attente').length)
-const confirmed = computed(() => reservations.value.filter(r => r.status === 'confirmee').length)
-const refused   = computed(() => reservations.value.filter(r => r.status === 'refusee').length)
+// --- SYNCHRONISATION AVEC LE BACKEND LARAVEL ---
+// Le backend utilise 'statut' (fr) et 'bien' (fr)
+
+const total = computed(() => reservations.value.length)
+const pending = computed(() => reservations.value.filter(r => r.statut === 'en_attente').length)
+const confirmed = computed(() => reservations.value.filter(r => r.statut === 'confirmee').length)
+const refused = computed(() => reservations.value.filter(r => r.statut === 'refusee').length)
+
+const imageSrc = (value?: string | null) => resolveImageSrc(value)
 
 const filtered = computed(() =>
   reservations.value.filter(r => {
-    const matchStatus = statusFilter.value === 'all' || r.status === statusFilter.value
+    // Filtre par statut
+    const matchStatus = statusFilter.value === 'all' || r.statut === statusFilter.value
+    
+    // Recherche par titre de la villa ou ville (via la relation 'bien')
+    const propertyTitle = r.bien?.titre || r.bien?.title || ''
+    const propertyCity = r.bien?.ville || r.bien?.city || ''
+    
     const matchSearch = !searchQuery.value
-      || r.property?.title?.toLowerCase().includes(searchQuery.value.toLowerCase())
-      || r.property?.city?.toLowerCase().includes(searchQuery.value.toLowerCase())
+      || propertyTitle.toLowerCase().includes(searchQuery.value.toLowerCase())
+      || propertyCity.toLowerCase().includes(searchQuery.value.toLowerCase())
+      
     return matchStatus && matchSearch
   })
 )
@@ -36,12 +48,14 @@ const statusCls: Record<string, string> = {
   refusee:    'bg-red-100 text-red-800 border border-red-200',
   annulee:    'bg-slate-100 text-slate-600 border border-slate-200',
 }
+
 const statusLbl: Record<string, string> = {
   en_attente: 'En attente',
   confirmee:  'Confirmée ✓',
   refusee:    'Refusée',
   annulee:    'Annulée',
 }
+
 const statusIcon: Record<string, any> = {
   en_attente: Clock,
   confirmee:  CheckCircle,
@@ -49,23 +63,33 @@ const statusIcon: Record<string, any> = {
   annulee:    Ban,
 }
 
-const formatDate = (d: string) =>
-  new Date(d).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short', year: 'numeric' })
-
-const nights = (r: any) => {
-  const s = new Date(r.start_date ?? r.startDate)
-  const e = new Date(r.end_date   ?? r.endDate)
-  return Math.max(0, Math.floor((e.getTime() - s.getTime()) / 86400000))
+const formatDate = (d: string) => {
+  if (!d) return '—'
+  return new Date(d).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short', year: 'numeric' })
 }
 
-onMounted(async () => {
+const nights = (r: any) => {
+  const s = new Date(r.date_debut)
+  const e = new Date(r.date_fin)
+  const diff = Math.floor((e.getTime() - s.getTime()) / 86400000)
+  return Math.max(0, diff)
+}
+
+const loadReservations = async () => {
+  loading.value = true
   try {
-    reservations.value = await getList('/reservations')
-  } catch {
+    const response = await getList('/reservations')
+    reservations.value = Array.isArray(response) ? response : []
+  } catch (error) {
+    console.error('Erreur lors du chargement des réservations:', error)
     reservations.value = []
   } finally {
     loading.value = false
   }
+}
+
+onMounted(() => {
+  loadReservations()
 })
 </script>
 
@@ -129,7 +153,7 @@ onMounted(async () => {
     <div class="mb-5 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm flex flex-col gap-3 sm:flex-row">
       <div class="relative flex-1">
         <Search class="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
-        <input v-model="searchQuery" placeholder="Rechercher par bien ou ville..."
+        <input v-model="searchQuery" placeholder="Rechercher par villa ou ville..."
           class="w-full rounded-xl border border-slate-200 bg-slate-50 py-2.5 pl-10 pr-4 text-sm focus:border-sky-500 focus:outline-none focus:ring-2 focus:ring-sky-500/20" />
       </div>
       <div class="flex items-center gap-2">
@@ -157,13 +181,12 @@ onMounted(async () => {
         :key="r.id"
         class="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm hover:shadow-md transition-shadow"
       >
-        <!-- Bandeau statut coloré en haut -->
         <div class="h-1.5 w-full"
           :class="{
-            'bg-amber-400':  r.status === 'en_attente',
-            'bg-emerald-500': r.status === 'confirmee',
-            'bg-red-500':    r.status === 'refusee',
-            'bg-slate-300':  r.status === 'annulee',
+            'bg-amber-400':  r.statut === 'en_attente',
+            'bg-emerald-500': r.statut === 'confirmee',
+            'bg-red-500':    r.statut === 'refusee',
+            'bg-slate-300':  r.statut === 'annulee',
           }" />
 
         <div class="p-5">
@@ -173,27 +196,26 @@ onMounted(async () => {
             <div class="flex items-start gap-4 flex-1 min-w-0">
               <div class="relative h-16 w-20 flex-shrink-0 overflow-hidden rounded-xl bg-slate-100">
                 <img
-                  v-if="r.property?.images?.[0]"
-                  :src="r.property.images[0]"
+                  :src="imageSrc(r.bien?.images?.[0])"
                   class="h-full w-full object-cover"
-                  :alt="r.property?.title"
+                  :alt="r.bien?.titre || 'Bien'"
                 />
-                <Home v-else class="m-auto mt-4 h-8 w-8 text-slate-400" />
+                <Home v-if="!r.bien?.images?.[0]" class="m-auto mt-4 h-8 w-8 text-slate-400" />
               </div>
               <div class="min-w-0">
                 <h3 class="font-bold text-slate-950 truncate">
-                  {{ r.property?.title ?? 'Villa #' + r.id }}
+                  {{ r.bien?.titre || 'Villa #' + r.id }}
                 </h3>
                 <p class="flex items-center gap-1 text-xs text-slate-500 mt-0.5">
-                  <MapPin class="h-3 w-3" />{{ r.property?.city ?? '—' }}
+                  <MapPin class="h-3 w-3" />{{ r.bien?.ville || 'Lieu non défini' }}
                 </p>
                 <p class="mt-1 text-sm text-slate-600">
-                  📅 {{ formatDate(r.start_date ?? r.startDate) }}
-                  → {{ formatDate(r.end_date ?? r.endDate) }}
+                  📅 {{ formatDate(r.date_debut) }}
+                  → {{ formatDate(r.date_fin) }}
                   <span class="ml-2 text-slate-400">({{ nights(r) }} nuit(s))</span>
                 </p>
                 <p class="mt-0.5 text-sm font-semibold text-sky-600">
-                  {{ Number(r.total_price ?? r.totalPrice ?? 0).toLocaleString('fr-FR') }} FCFA
+                  {{ Number(r.total_price || 0).toLocaleString('fr-FR') }} FCFA
                 </p>
               </div>
             </div>
@@ -201,9 +223,9 @@ onMounted(async () => {
             <!-- Statut + actions -->
             <div class="flex flex-wrap items-center gap-2 shrink-0">
               <span class="inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-bold"
-                :class="statusCls[r.status] ?? 'bg-slate-100 text-slate-600'">
-                <component :is="statusIcon[r.status] ?? Clock" class="h-3.5 w-3.5" />
-                {{ statusLbl[r.status] ?? r.status }}
+                :class="statusCls[r.statut] || 'bg-slate-100 text-slate-600'">
+                <component :is="statusIcon[r.statut] || Clock" class="h-3.5 w-3.5" />
+                {{ statusLbl[r.statut] || r.statut }}
               </span>
 
               <button
@@ -212,25 +234,14 @@ onMounted(async () => {
               >
                 <Eye class="h-3.5 w-3.5" />Voir
               </button>
-
-              <!-- Faire réclamation si confirmée -->
-              <button
-                v-if="r.status === 'confirmee'"
-                @click="router.push(`/client/reclamations/nouvelle?reservation=${r.id}`)"
-                class="inline-flex items-center gap-1.5 rounded-xl bg-orange-500 px-3 py-1.5 text-xs font-semibold text-white hover:bg-orange-600 transition-colors"
-              >
-                <MessageSquare class="h-3.5 w-3.5" />Réclamation
-              </button>
             </div>
           </div>
 
-          <!-- Commentaire agent -->
-          <div v-if="r.agent_comment || r.agentComment || r.commentaire_agent"
+          <!-- Note de l'agent -->
+          <div v-if="r.commentaire_agent"
             class="mt-4 border-t border-slate-100 pt-3 flex items-start gap-2">
             <span class="text-xs font-bold text-slate-500">Note de l'agent :</span>
-            <span class="text-xs text-slate-600">
-              {{ r.agent_comment ?? r.agentComment ?? r.commentaire_agent }}
-            </span>
+            <span class="text-xs text-slate-600">{{ r.commentaire_agent }}</span>
           </div>
         </div>
       </div>
@@ -241,7 +252,7 @@ onMounted(async () => {
       <Calendar class="mx-auto mb-4 h-14 w-14 text-slate-300" />
       <h3 class="mb-1 text-lg font-bold text-slate-700">Aucune réservation</h3>
       <p class="mb-5 text-sm text-slate-400">Vous n'avez pas encore effectué de réservation</p>
-      <RouterLink to="/biens"
+      <RouterLink to="/client/recherche"
         class="inline-flex items-center gap-2 rounded-xl bg-sky-500 px-5 py-2.5 text-sm font-bold text-white hover:bg-sky-600 transition-colors">
         <Plus class="h-4 w-4" />Réserver un bien
       </RouterLink>

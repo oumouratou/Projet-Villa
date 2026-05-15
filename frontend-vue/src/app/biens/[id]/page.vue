@@ -2,10 +2,10 @@
 import { computed, onMounted, onUnmounted, reactive, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import {
-  ArrowLeft, Bath, BedDouble, CalendarDays, CheckCircle2, Clock,
+  ArrowLeft, Bath, BedDouble, CalendarDays,
   Car, ChevronLeft, ChevronRight, Heart, MapPin, Maximize,
-  ShieldCheck, Users, Waves, Wind, Wifi, XCircle, Droplet,
-  Trees, LogIn, UserPlus, Sparkles, Star,
+  ShieldCheck, Users, Waves, Wind, Wifi,
+  Droplet, Trees, LogIn, UserPlus, Sparkles, Star,
 } from 'lucide-vue-next'
 import { createReservation, getProperty } from '@/lib/api'
 import { getStoredToken } from '@/lib/session'
@@ -37,11 +37,11 @@ const registerUrl = computed(() =>
 )
 
 const fallbackGallery = [
-  'https://images.unsplash.com/photo-1613490493576-7fde63acd811?w=1400&h=900&fit=crop',
-  'https://images.unsplash.com/photo-1600585154340-be6161a56a0c?w=1400&h=900&fit=crop',
-  'https://images.unsplash.com/photo-1505693416388-ac5ce068fe85?w=1400&h=900&fit=crop',
-  'https://images.unsplash.com/photo-1522708323590-d24dbb6b0267?w=1400&h=900&fit=crop',
-  'https://images.unsplash.com/photo-1502005229762-cf1b2da7c5d6?w=1400&h=900&fit=crop',
+  '/placeholder.svg',
+  '/placeholder.svg',
+  '/placeholder.svg',
+  '/placeholder.svg',
+  '/placeholder.svg',
 ]
 
 const galleryImages = computed<string[]>(() => {

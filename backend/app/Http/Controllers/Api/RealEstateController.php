@@ -3,11 +3,11 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Models\BienImmobilier;
 use App\Models\Client;
-use App\Models\Complaint;
-use App\Models\Property;
-use App\Models\PropertyOption;
+use App\Models\Option;
 use App\Models\Reservation;
+use App\Models\Reclamation;
 use App\Models\User;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -42,18 +42,16 @@ class RealEstateController extends Controller
         }
 
         $totalReservations = (clone $reservationsQuery)->count();
-        $pendingReservations = (clone $reservationsQuery)->where('status', 'en_attente')->count();
-        $totalProperties = Property::count();
+        $pendingReservations = (clone $reservationsQuery)->where('statut', 'en_attente')->count();
+        $totalProperties = BienImmobilier::count();
 
         $stats = [
             'totalProperties' => $totalProperties,
             'totalReservations' => $totalReservations,
             'pendingReservations' => $pendingReservations,
             'totalClients' => $role === 'client' ? 1 : Client::count(),
-            'totalRevenue' => (int) (clone $reservationsQuery)->where('status', 'confirmee')->sum('total_price'),
-            'occupancyRate' => $totalProperties > 0
-                ? round((Property::where('status', 'reserve')->count() / $totalProperties) * 100, 2)
-                : 0,
+            'totalRevenue' => 0,
+            'occupancyRate' => 0,
         ];
 
         return response()->json(['data' => $stats]);
@@ -61,9 +59,9 @@ class RealEstateController extends Controller
 
     public function properties(): JsonResponse
     {
-        $data = Property::with([
+        $data = BienImmobilier::with([
             'options:id,name,icon',
-            'agent:id,name,email,role,status',
+            'agent:id,name,email,status',
             'propertyImages:id,property_id,url,order'
         ])
             ->orderByDesc('id')
@@ -72,12 +70,12 @@ class RealEstateController extends Controller
         return response()->json(['data' => $data]);
     }
 
-    public function propertyShow(Property $property): JsonResponse
+    public function propertyShow(BienImmobilier $property): JsonResponse
     {
         return response()->json([
             'data' => $property->load([
                 'options:id,name,icon',
-                'agent:id,name,email,role,status',
+                'agent:id,name,email,status',
                 'propertyImages:id,property_id,url,order'
             ]),
         ]);
@@ -90,7 +88,7 @@ class RealEstateController extends Controller
             return response()->json(['message' => 'Accès refusé.'], 403);
         }
 
-        $data = Client::with(['agent:id,name,email,role,status'])
+        $data = Client::with(['agent:id,name,email,status'])
             ->orderByDesc('id')
             ->get();
 
@@ -106,11 +104,11 @@ class RealEstateController extends Controller
 
         return response()->json([
             'data' => $client->load([
-                'agent:id,name,email,role,status',
+                'agent:id,name,email,status',
                 'reservations.property:id,title,city,price_per_night,image_url',
-                'reservations.agent:id,name,email,role,status',
+                'reservations.agent:id,name,email,status',
                 'complaints.reservation.property:id,title,city',
-                'complaints.agent:id,name,email,role,status',
+                'complaints.agent:id,name,email,status',
             ]),
         ]);
     }
@@ -122,11 +120,14 @@ class RealEstateController extends Controller
             return response()->json(['message' => 'Accès refusé.'], 403);
         }
 
-        $query = User::query()->select(['id', 'name', 'email', 'phone', 'role', 'status', 'created_at']);
+        $query = User::query()->select(['id', 'name', 'email', 'phone', 'status', 'created_at'])
+            ->with(['roles:id,name']);
 
         $role = request()->query('role');
         if (is_string($role) && $role !== '') {
-            $query->where('role', $role);
+            $query->whereHas('roles', function ($subQuery) use ($role) {
+                $subQuery->where('name', $role);
+            });
         }
 
         return response()->json(['data' => $query->orderByDesc('id')->get()]);
@@ -150,7 +151,7 @@ class RealEstateController extends Controller
         $query = Reservation::with([
             'property:id,title,city,price_per_night',
             'client:id,first_name,last_name,email,phone',
-            'agent:id,name,email,role,status',
+            'agent:id,name,email,status',
         ])->orderByDesc('id');
 
         if ($role === 'client') {
@@ -187,7 +188,7 @@ class RealEstateController extends Controller
             'data' => $reservation->load([
                 'property:id,title,city,price_per_night',
                 'client:id,first_name,last_name,email,phone',
-                'agent:id,name,email,role,status',
+                'agent:id,name,email,status',
                 'complaints:id,reservation_id,subject,status,created_at',
             ]),
         ]);
@@ -198,11 +199,11 @@ class RealEstateController extends Controller
         $user = $request->user();
         $role = $this->currentRole($request);
 
-        $query = Complaint::with([
+        $query = Reclamation::with([
             'client:id,first_name,last_name,email',
             'reservation:id,property_id,start_date,end_date,status',
             'reservation.property:id,title,city',
-            'agent:id,name,email,role,status',
+            'agent:id,name,email,status',
         ])->orderByDesc('id');
 
         if ($role === 'client') {
@@ -219,7 +220,7 @@ class RealEstateController extends Controller
         return response()->json(['data' => $data]);
     }
 
-    public function complaintShow(Request $request, Complaint $complaint): JsonResponse
+    public function complaintShow(Request $request, Reclamation $complaint): JsonResponse
     {
         $user = $request->user();
         $role = $this->currentRole($request);
@@ -240,13 +241,13 @@ class RealEstateController extends Controller
                 'client:id,first_name,last_name,email,phone',
                 'reservation:id,property_id,start_date,end_date,status,total_price',
                 'reservation.property:id,title,city,address',
-                'agent:id,name,email,role,status',
+                'agent:id,name,email,status',
             ]),
         ]);
     }
 
     public function options(): JsonResponse
     {
-        return response()->json(['data' => PropertyOption::orderBy('name')->get()]);
+        return response()->json(['data' => Option::orderBy('name')->get()]);
     }
 }

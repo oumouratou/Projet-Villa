@@ -17,23 +17,23 @@ const agentResponse = ref('')
 const newStatus     = ref('')
 
 const statusOpts = [
-  { value: 'ouverte',  label: 'Ouverte',  cls: 'bg-blue-100 text-blue-800' },
-  { value: 'en_cours', label: 'En cours', cls: 'bg-amber-100 text-amber-800' },
-  { value: 'traitee',  label: 'Traitée',  cls: 'bg-green-100 text-green-800' },
+  { value: 'en_attente', label: 'En attente',  cls: 'bg-blue-100 text-blue-800' },
+  { value: 'approuver',  label: 'Approuver',   cls: 'bg-green-100 text-green-800' },
+  { value: 'refuser',    label: 'Refuser',     cls: 'bg-red-100 text-red-800' },
 ]
 
 const currentStatusCls = computed(() => {
-  const s = complaint.value?.status ?? 'ouverte'
+  const s = complaint.value?.statut ?? complaint.value?.status ?? 'en_attente'
   return statusOpts.find(o => o.value === s)?.cls ?? 'bg-slate-100 text-slate-700'
 })
 const currentStatusLabel = computed(() => {
-  const s = complaint.value?.status ?? 'ouverte'
+  const s = complaint.value?.statut ?? complaint.value?.status ?? 'en_attente'
   return statusOpts.find(o => o.value === s)?.label ?? s
 })
 const clientName = computed(() => {
   const c = complaint.value?.client
   if (!c) return 'Client inconnu'
-  return c.name ?? `${c.first_name ?? ''} ${c.last_name ?? ''}`.trim() || c.email
+  return c.name ?? (`${c.first_name ?? ''} ${c.last_name ?? ''}`.trim() || c.email)
 })
 const reservationTitle = computed(() => {
   const r = complaint.value?.reservation
@@ -45,9 +45,9 @@ const load = async () => {
   loading.value = true
   feedback.value = null
   try {
-    complaint.value = await getDetail('/complaints', String(route.params.id))
+    complaint.value = await getDetail('/reclamations', String(route.params.id))
     agentResponse.value = complaint.value?.agent_response ?? complaint.value?.agentResponse ?? ''
-    newStatus.value     = complaint.value?.status ?? 'ouverte'
+    newStatus.value     = complaint.value?.statut ?? complaint.value?.status ?? 'en_attente'
   } catch {
     complaint.value = null
   } finally {
@@ -60,12 +60,13 @@ const submit = async () => {
   saving.value   = true
   feedback.value = null
   try {
-    const updated = await updateComplaint({
+    await updateComplaint({
       id:          String(complaint.value.id),
-      status:      newStatus.value as 'ouverte' | 'en_cours' | 'traitee' | 'fermee',
+      status:      newStatus.value as 'en_attente' | 'approuver' | 'refuser',
       description: agentResponse.value,
     })
-    complaint.value = updated
+    // recharger les données pour uniformiser
+    complaint.value = await getDetail('/reclamations', String(route.params.id))
     feedback.value  = { type: 'success', text: 'Réclamation mise à jour avec succès !' }
   } catch (err) {
     feedback.value = { type: 'error', text: err instanceof Error ? err.message : 'Erreur lors de la sauvegarde.' }
@@ -108,9 +109,9 @@ onMounted(load)
 
         <div class="flex items-center justify-between rounded-xl border border-border bg-card p-4">
           <div class="flex items-center gap-3">
-            <CheckCircle2 v-if="complaint.status === 'traitee'" class="h-6 w-6 text-green-600" />
-            <Clock v-else-if="complaint.status === 'en_cours'" class="h-6 w-6 text-amber-500" />
-            <AlertCircle v-else class="h-6 w-6 text-blue-600" />
+            <CheckCircle2 v-if="complaint.statut === 'approuver'" class="h-6 w-6 text-green-600" />
+            <AlertCircle v-else-if="complaint.statut === 'refuser'" class="h-6 w-6 text-red-600" />
+            <Clock v-else class="h-6 w-6 text-blue-600" />
             <div>
               <p class="font-semibold text-foreground">Réclamation #{{ complaint.id }}</p>
               <p class="text-xs text-muted-foreground">

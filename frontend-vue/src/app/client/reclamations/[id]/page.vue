@@ -9,22 +9,34 @@ const route = useRoute()
 const complaint = ref<any | null>(null)
 
 const statusColors: Record<string, string> = {
-  nouvelle: 'bg-blue-100 text-blue-800 border-blue-200',
-  ouverte: 'bg-blue-100 text-blue-800 border-blue-200',
-  en_cours: 'bg-yellow-100 text-yellow-800 border-yellow-200',
-  traitee: 'bg-green-100 text-green-800 border-green-200',
+  en_attente: 'bg-blue-100 text-blue-800 border-blue-200',
+  approuver:  'bg-green-100 text-green-800 border-green-200',
+  refuser:    'bg-red-100 text-red-800 border-red-200',
 }
 const statusLabels: Record<string, string> = {
-  nouvelle: 'Nouvelle - En attente de traitement',
-  ouverte: 'Ouverte - En attente de traitement',
-  en_cours: 'En cours de traitement',
-  traitee: 'Reclamation traitee',
+  en_attente: 'En attente',
+  approuver:  'Approuvée',
+  refuser:    'Refusée',
 }
-const statusIcons: Record<string, any> = { nouvelle: AlertCircle, ouverte: AlertCircle, en_cours: Clock, traitee: CheckCircle }
+const statusIcons: Record<string, any> = { en_attente: AlertCircle, approuver: CheckCircle, refuser: AlertCircle }
+
+const getStatus = (item: any) => item?.statut ?? item?.status ?? 'en_attente'
+
+const formatDate = (value: unknown) => {
+  if (!value) return '—'
+  const date = value instanceof Date ? value : new Date(value as string)
+  return Number.isNaN(date.getTime()) ? '—' : date.toLocaleDateString('fr-FR')
+}
+
+const getReservationDates = (reservation: any) => {
+  const start = reservation?.startDate ?? reservation?.date_debut ?? reservation?.dateDebut
+  const end = reservation?.endDate ?? reservation?.date_fin ?? reservation?.dateFin
+  return `${formatDate(start)} - ${formatDate(end)}`
+}
 
 onMounted(async () => {
   try {
-    complaint.value = await getDetail('/complaints', String(route.params.id))
+    complaint.value = await getDetail('/reclamations', String(route.params.id))
   } catch {
     complaint.value = null
   }
@@ -37,14 +49,62 @@ onMounted(async () => {
     <RouterLink to="/client/reclamations" class="mb-6 inline-flex items-center gap-2 text-muted-foreground"><ArrowLeft class="h-4 w-4" />Retour aux reclamations</RouterLink>
     <div v-if="!complaint" class="rounded-xl border border-border bg-card p-6">Reclamation introuvable.</div>
     <div v-else class="max-w-3xl space-y-6">
-      <div class="flex items-center gap-3 rounded-xl border p-4" :class="statusColors[complaint.status]"><component :is="statusIcons[complaint.status]" class="h-6 w-6" /><div><p class="font-semibold">{{ statusLabels[complaint.status] }}</p><p v-if="complaint.status === 'nouvelle'" class="text-sm opacity-80">Votre reclamation sera traitee dans les plus brefs delais</p><p v-if="complaint.status === 'en_cours'" class="text-sm opacity-80">Un agent travaille sur votre demande</p></div></div>
+      <div class="flex items-center gap-3 rounded-xl border p-4" :class="statusColors[getStatus(complaint)] ?? 'bg-slate-50 text-slate-700 border-slate-200'">
+        <component :is="statusIcons[getStatus(complaint)] ?? AlertCircle" class="h-6 w-6" />
+        <div>
+          <p class="font-semibold">{{ statusLabels[getStatus(complaint)] ?? getStatus(complaint) }}</p>
+          <p v-if="getStatus(complaint) === 'en_attente'" class="text-sm opacity-80">Votre reclamation sera traitee dans les plus brefs delais</p>
+          <p v-else-if="getStatus(complaint) === 'approuver'" class="text-sm opacity-80">Votre reclamation a ete approuvee par un agent</p>
+          <p v-else-if="getStatus(complaint) === 'refuser'" class="text-sm opacity-80">Votre reclamation a ete refusee par un agent</p>
+        </div>
+      </div>
       <div class="rounded-xl border border-border bg-card">
         <div class="border-b border-border p-5"><div class="flex items-start gap-4"><div class="flex h-12 w-12 items-center justify-center rounded-lg bg-primary/10"><MessageSquare class="h-6 w-6 text-primary" /></div><div><h2 class="text-xl font-semibold">{{ complaint.subject }}</h2><p class="mt-1 text-sm text-muted-foreground">Reference: #{{ complaint.id }}</p></div></div></div>
         <div class="p-5"><h3 class="mb-2 text-sm font-medium text-muted-foreground">Description</h3><p class="leading-relaxed text-foreground">{{ complaint.description }}</p></div>
       </div>
-      <div v-if="complaint.reservation" class="rounded-xl border border-border bg-card p-5"><h3 class="mb-4 flex items-center gap-2 font-semibold"><Home class="h-5 w-5 text-primary" />Reservation associee</h3><RouterLink :to="`/client/reservations/${complaint.reservationId}`" class="flex items-center gap-4 rounded-lg bg-muted/50 p-4"><div class="flex h-12 w-12 items-center justify-center rounded-lg bg-card"><Home class="h-6 w-6 text-muted-foreground" /></div><div><p class="font-medium">{{ complaint.reservation.property?.title }}</p><p class="text-sm text-muted-foreground">{{ complaint.reservation.startDate.toLocaleDateString('fr-FR') }} - {{ complaint.reservation.endDate.toLocaleDateString('fr-FR') }}</p></div></RouterLink></div>
-      <div v-if="complaint.agentResponse" class="rounded-xl border border-border bg-card p-5"><h3 class="mb-4 flex items-center gap-2 font-semibold"><User class="h-5 w-5 text-primary" />Reponse de l'agent</h3><div class="rounded-lg bg-muted/50 p-4"><p>{{ complaint.agentResponse }}</p><p class="mt-3 text-xs text-muted-foreground">Repondu le {{ complaint.updatedAt.toLocaleDateString('fr-FR') }}</p></div></div>
-      <div class="rounded-xl border border-border bg-card p-5"><h3 class="mb-4 flex items-center gap-2 font-semibold"><Calendar class="h-5 w-5 text-primary" />Historique</h3><div class="space-y-4"><div class="flex gap-4"><div class="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-full bg-blue-100"><AlertCircle class="h-5 w-5 text-blue-600" /></div><div><p class="font-medium">Reclamation creee</p><p class="text-sm text-muted-foreground">{{ complaint.createdAt.toLocaleDateString('fr-FR') }}</p></div></div><div v-if="complaint.status !== 'nouvelle'" class="flex gap-4"><div class="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-full bg-yellow-100"><Clock class="h-5 w-5 text-yellow-600" /></div><div><p class="font-medium">Prise en charge</p><p class="text-sm text-muted-foreground">Un agent a pris en charge votre reclamation</p></div></div><div v-if="complaint.status === 'traitee'" class="flex gap-4"><div class="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-full bg-green-100"><CheckCircle class="h-5 w-5 text-green-600" /></div><div><p class="font-medium">Reclamation traitee</p><p class="text-sm text-muted-foreground">{{ complaint.updatedAt.toLocaleDateString('fr-FR') }}</p></div></div></div></div>
+      <div v-if="complaint.reservation" class="rounded-xl border border-border bg-card p-5">
+        <h3 class="mb-4 flex items-center gap-2 font-semibold"><Home class="h-5 w-5 text-primary" />Reservation associee</h3>
+        <RouterLink :to="`/client/reservations/${complaint.reservationId || complaint.reservation?.id}`" class="flex items-center gap-4 rounded-lg bg-muted/50 p-4">
+          <div class="flex h-12 w-12 items-center justify-center rounded-lg bg-card"><Home class="h-6 w-6 text-muted-foreground" /></div>
+          <div>
+            <p class="font-medium">{{ complaint.reservation?.property?.title ?? complaint.reservation?.bien?.title ?? complaint.reservation?.title ?? 'Reservation' }}</p>
+            <p class="text-sm text-muted-foreground">{{ getReservationDates(complaint.reservation) }}</p>
+          </div>
+        </RouterLink>
+      </div>
+      <div v-if="complaint.agent_response || complaint.agentResponse" class="rounded-xl border border-border bg-card p-5">
+        <h3 class="mb-4 flex items-center gap-2 font-semibold"><User class="h-5 w-5 text-primary" />Reponse de l'agent</h3>
+        <div class="rounded-lg bg-muted/50 p-4">
+          <p>{{ complaint.agent_response ?? complaint.agentResponse }}</p>
+          <p class="mt-3 text-xs text-muted-foreground">Repondu le {{ formatDate(complaint.updated_at ?? complaint.updatedAt) }}</p>
+        </div>
+      </div>
+      <div class="rounded-xl border border-border bg-card p-5">
+        <h3 class="mb-4 flex items-center gap-2 font-semibold"><Calendar class="h-5 w-5 text-primary" />Historique</h3>
+        <div class="space-y-4">
+          <div class="flex gap-4">
+            <div class="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-full bg-blue-100"><AlertCircle class="h-5 w-5 text-blue-600" /></div>
+            <div>
+              <p class="font-medium">Reclamation creee</p>
+              <p class="text-sm text-muted-foreground">{{ formatDate(complaint.created_at ?? complaint.createdAt) }}</p>
+            </div>
+          </div>
+          <div v-if="getStatus(complaint) !== 'en_attente'" class="flex gap-4">
+            <div class="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-full bg-yellow-100"><Clock class="h-5 w-5 text-yellow-600" /></div>
+            <div>
+              <p class="font-medium">Prise en charge</p>
+              <p class="text-sm text-muted-foreground">Un agent a pris en charge votre reclamation</p>
+            </div>
+          </div>
+          <div v-if="getStatus(complaint) === 'approuver'" class="flex gap-4">
+            <div class="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-full bg-green-100"><CheckCircle class="h-5 w-5 text-green-600" /></div>
+            <div>
+              <p class="font-medium">Reclamation approuvee</p>
+              <p class="text-sm text-muted-foreground">{{ formatDate(complaint.updated_at ?? complaint.updatedAt) }}</p>
+            </div>
+          </div>
+        </div>
+      </div>
     </div>
   </main>
 </template>

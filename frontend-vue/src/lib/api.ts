@@ -2,6 +2,7 @@ import axios from 'axios'
 import type { ApiResponse, DashboardStats, RowData } from '../types'
 import type { MockOption, MockProperty } from './mock-data'
 import { getStoredToken, clearSession, setSession } from './session'
+import { DEFAULT_IMAGE_SRC, resolveImageSrc } from './image'
 
 const api = axios.create({
   baseURL: import.meta.env.VITE_API_BASE_URL ?? 'http://127.0.0.1:8000/api/v1',
@@ -53,6 +54,14 @@ function normalizeError(error: unknown): Error {
   return error instanceof Error ? error : new Error('Unknown API error')
 }
 
+function unwrapApiData<T>(payload: unknown): T {
+  if (payload && typeof payload === 'object' && 'data' in payload) {
+    return (payload as ApiResponse<T>).data
+  }
+
+  return payload as T
+}
+
 export async function getDashboardStats(): Promise<DashboardStats> {
   try {
     const { data } = await api.get<ApiResponse<DashboardStats>>('/dashboard/stats')
@@ -65,7 +74,21 @@ export async function getDashboardStats(): Promise<DashboardStats> {
 export async function getList(endpoint: string): Promise<RowData[]> {
   try {
     const { data } = await api.get<ApiResponse<RowData[]>>(endpoint)
-    return data.data
+    const unwrapped = unwrapApiData<RowData[] | RowData[]>(data)
+    if (!Array.isArray(unwrapped)) return []
+
+    // If this is a list of backend properties, normalize each item so that
+    // frontend code can rely on `images` being an array of resolved URLs.
+    try {
+      const first = unwrapped[0] as unknown as BackendProperty
+      if (first && (first.propertyImages || first.image_url || first.images)) {
+        return (unwrapped as unknown as BackendProperty[]).map(mapBackendProperty) as unknown as RowData[]
+      }
+    } catch {
+      // ignore and fall through
+    }
+
+    return unwrapped
   } catch (error) {
     throw normalizeError(error)
   }
@@ -74,7 +97,19 @@ export async function getList(endpoint: string): Promise<RowData[]> {
 export async function getDetail(endpoint: string, id: string): Promise<RowData> {
   try {
     const { data } = await api.get<ApiResponse<RowData>>(`${endpoint}/${id}`)
-    return data.data
+    const unwrapped = unwrapApiData<RowData>(data)
+    // If the returned resource looks like a backend Property, map it to the
+    // frontend shape so components can always read `images` and `imageUrl`.
+    try {
+      const candidate = unwrapped as unknown as BackendProperty
+      if (candidate && (candidate.propertyImages || candidate.image_url || candidate.images)) {
+        return mapBackendProperty(candidate) as unknown as RowData
+      }
+    } catch {
+      // ignore and return raw
+    }
+
+    return unwrapped
   } catch (error) {
     throw normalizeError(error)
   }
@@ -191,7 +226,7 @@ export async function updateReservation(payload: {
 
 export async function createComplaint(payload: { reservationId: string; subject: string; description: string }) {
   try {
-    const { data } = await api.post<ApiResponse<RowData>>('/complaints', {
+    const { data } = await api.post<ApiResponse<RowData>>('/reclamations', {
       reservation_id: Number(payload.reservationId),
       subject: payload.subject,
       description: payload.description,
@@ -204,16 +239,27 @@ export async function createComplaint(payload: { reservationId: string; subject:
 
 export async function updateComplaint(payload: {
   id: string
-  status?: 'ouverte' | 'en_cours' | 'traitee' | 'fermee'
+  status?: 'en_attente' | 'approuver' | 'refuser'
   subject?: string
   description?: string
 }) {
   try {
-    const { data } = await api.patch<ApiResponse<RowData>>(`/complaints/${payload.id}`, {
+    const { data } = await api.patch<ApiResponse<RowData>>(`/reclamations/${payload.id}`, {
       statut: payload.status,
       subject: payload.subject,
-      description: payload.description,
+      agent_response: payload.description,
     })
+    return data.data
+  } catch (error) {
+    throw normalizeError(error)
+  }
+}
+
+export async function postData(endpoint: string, payload: any) {
+  // Accept both /complaints and /reclamations paths from older code
+  const normalized = endpoint.replace('/complaints', '/reclamations')
+  try {
+    const { data } = await api.post<ApiResponse<any>>(normalized, payload)
     return data.data
   } catch (error) {
     throw normalizeError(error)
@@ -226,6 +272,8 @@ type BackendOption = {
   icon?: string | null
   description?: string | null
 }
+
+type PropertyStatus = 'disponible' | 'reserve' | 'maintenance'
 
 type BackendProperty = {
   id: number | string
@@ -243,9 +291,47 @@ type BackendProperty = {
   capacity?: number | null
   status?: 'disponible' | 'reserve' | 'maintenance' | null
   images?: string[] | null
+  image_url?: string | null
   agent_id?: number | string | null
   created_at?: string | null
   options?: BackendOption[]
+}
+
+const DEFAULT_PROPERTY_IMAGE = '/placeholder.svg'
+
+type PropertyPayload = {
+  title: string
+  type: string
+  description: string
+  address: string
+  city: string
+  postalCode?: string
+  pricePerNight: number
+  surface: number
+  bedrooms: number
+  bathrooms: number
+  capacity: number
+  status: PropertyStatus
+  imageUrl?: string
+  images?: string[]
+  options?: string[]
+}
+
+const normalizeImageList = (images?: string[] | null, imageUrl?: string | null) => {
+  const normalized = (images ?? [])
+    .map((image) => resolveImageSrc(image))
+    .filter((image) => image !== DEFAULT_IMAGE_SRC)
+
+  if (normalized.length > 0) {
+    return normalized
+  }
+
+  const resolvedImageUrl = resolveImageSrc(imageUrl)
+  if (resolvedImageUrl !== DEFAULT_IMAGE_SRC) {
+    return [resolvedImageUrl]
+  }
+
+  return [DEFAULT_PROPERTY_IMAGE]
 }
 
 function mapBackendOption(option: BackendOption): MockOption {
@@ -259,6 +345,7 @@ function mapBackendOption(option: BackendOption): MockOption {
 
 function mapBackendProperty(item: BackendProperty): MockProperty {
   const mappedPrice = Number(item.price_per_night ?? item.price ?? 0)
+  const images = normalizeImageList(item.images ?? null, item.image_url ?? null)
 
   return {
     id: String(item.id),
@@ -275,7 +362,7 @@ function mapBackendProperty(item: BackendProperty): MockProperty {
     bathrooms: Number(item.bathrooms ?? 0),
     capacity: Number(item.capacity ?? 0),
     status: item.status || 'disponible',
-    images: item.images && item.images.length > 0 ? item.images : ['/placeholder.svg'],
+    images,
     options: (item.options || []).map(mapBackendOption),
     agentId: String(item.agent_id ?? 'agent-1'),
     createdAt: item.created_at ? new Date(item.created_at) : new Date(),
@@ -295,6 +382,102 @@ export async function getProperty(id: string): Promise<MockProperty> {
   try {
     const { data } = await api.get<ApiResponse<BackendProperty>>(`/properties/${id}`)
     return mapBackendProperty(data.data)
+  } catch (error) {
+    try {
+      const { data } = await api.get<ApiResponse<BackendProperty>>(`/biens/${id}`)
+      return mapBackendProperty(data.data)
+    } catch (fallbackError) {
+      throw normalizeError(fallbackError)
+    }
+  }
+}
+
+export async function getPropertyOptions(): Promise<MockOption[]> {
+  try {
+    const { data } = await api.get<ApiResponse<BackendOption[]>>('/options')
+    return data.data.map(mapBackendOption)
+  } catch (error) {
+    throw normalizeError(error)
+  }
+}
+
+export async function createProperty(property: PropertyPayload): Promise<MockProperty> {
+  try {
+    const imageUrl = resolveImageSrc(property.imageUrl)
+    const resolvedImageUrl = imageUrl !== DEFAULT_IMAGE_SRC ? imageUrl : undefined
+
+    // If imageUrl not provided but property.images contains a data URL, upload it
+    let uploadedUrl: string | undefined
+    const firstImageCandidate = property.images?.[0]
+    if (!resolvedImageUrl && typeof firstImageCandidate === 'string' && firstImageCandidate.startsWith('data:')) {
+      // convert data URL to Blob
+      const res = await fetch(firstImageCandidate)
+      const blob = await res.blob()
+      const form = new FormData()
+      form.append('file', blob, 'photo.jpg')
+      const resp = await api.post<ApiResponse<{ url: string }>>('/uploads', form, {
+        headers: { 'Content-Type': 'multipart/form-data' },
+      })
+      uploadedUrl = resp.data.data.url
+    }
+
+    const { data } = await api.post<ApiResponse<BackendProperty>>('/properties', {
+      title: property.title,
+      type: property.type,
+      description: property.description,
+      address: property.address,
+      city: property.city,
+      postal_code: property.postalCode ?? '',
+      price_per_night: property.pricePerNight,
+      surface: property.surface,
+      bedrooms: property.bedrooms,
+      bathrooms: property.bathrooms,
+      capacity: property.capacity,
+      status: property.status,
+      ...(resolvedImageUrl ? { image_url: resolvedImageUrl } : {}),
+      ...(uploadedUrl ? { image_url: uploadedUrl } : {}),
+      options: (property.options ?? []).map((id) => Number(id)).filter((id) => Number.isFinite(id)),
+    })
+
+    return mapBackendProperty(data.data)
+  } catch (error) {
+    throw normalizeError(error)
+  }
+}
+
+export async function updateProperty(id: string, property: Partial<PropertyPayload>): Promise<MockProperty> {
+  try {
+    const imageUrl = resolveImageSrc(property.imageUrl)
+    const resolvedImageUrl = imageUrl !== DEFAULT_IMAGE_SRC ? imageUrl : undefined
+
+    const { data } = await api.put<ApiResponse<BackendProperty>>(`/properties/${encodeURIComponent(id)}`, {
+      ...(property.title !== undefined ? { title: property.title } : {}),
+      ...(property.type !== undefined ? { type: property.type } : {}),
+      ...(property.description !== undefined ? { description: property.description } : {}),
+      ...(property.address !== undefined ? { address: property.address } : {}),
+      ...(property.city !== undefined ? { city: property.city } : {}),
+      ...(property.postalCode !== undefined ? { postal_code: property.postalCode } : {}),
+      ...(property.pricePerNight !== undefined ? { price_per_night: property.pricePerNight } : {}),
+      ...(property.surface !== undefined ? { surface: property.surface } : {}),
+      ...(property.bedrooms !== undefined ? { bedrooms: property.bedrooms } : {}),
+      ...(property.bathrooms !== undefined ? { bathrooms: property.bathrooms } : {}),
+      ...(property.capacity !== undefined ? { capacity: property.capacity } : {}),
+      ...(property.status !== undefined ? { status: property.status } : {}),
+      ...(resolvedImageUrl ? { image_url: resolvedImageUrl } : {}),
+      ...(property.options !== undefined
+        ? { options: property.options.map((id) => Number(id)).filter((id) => Number.isFinite(id)) }
+        : {}),
+    })
+
+    return mapBackendProperty(data.data)
+  } catch (error) {
+    throw normalizeError(error)
+  }
+}
+
+export async function deleteProperty(id: string): Promise<void> {
+  try {
+    await api.delete(`/properties/${encodeURIComponent(id)}`)
   } catch (error) {
     throw normalizeError(error)
   }

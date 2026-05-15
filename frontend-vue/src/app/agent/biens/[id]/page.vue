@@ -1,8 +1,9 @@
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue'
+import { computed, onMounted, ref, onBeforeUnmount } from 'vue'
 import { useRoute } from 'vue-router'
 import { ArrowLeft, Edit, Trash2, MapPin, Bed, Bath, Users, Maximize, Wifi, Car, Waves, Wind, Tv, UtensilsCrossed, CalendarDays, CheckCircle2, XCircle, Clock } from 'lucide-vue-next'
-import { getDetail, getList } from '@/lib/api'
+import { getDetail, getList, deleteProperty } from '@/lib/api'
+import { resolveImageSrc } from '@/lib/image'
 
 const route = useRoute()
 const property = ref<any | null>(null)
@@ -40,8 +41,55 @@ const getClientName = (clientId: string) => {
   return client ? `${client.first_name || client.firstName || ''} ${client.last_name || client.lastName || ''}`.trim() : 'Client inconnu'
 }
 
-const formatDate = (date: Date) => date.toLocaleDateString('fr-FR')
-const formatPrice = (price: number) => `${price.toLocaleString()} FCFA`
+const formatDate = (value: unknown) => {
+  if (!value) return '—'
+  const date = value instanceof Date ? value : new Date(value as string)
+  return Number.isNaN(date.getTime()) ? '—' : date.toLocaleDateString('fr-FR')
+}
+const formatPrice = (price: unknown) => `${Number(price ?? 0).toLocaleString('fr-FR')} FCFA`
+
+const imageSrc = (value?: string | null) => resolveImageSrc(value)
+
+// Lightbox state for gallery
+const isLightboxOpen = ref(false)
+const lightboxIndex = ref(0)
+const openLightbox = (i = 0) => {
+  lightboxIndex.value = i
+  isLightboxOpen.value = true
+}
+const closeLightbox = () => {
+  isLightboxOpen.value = false
+}
+const prevLightbox = () => {
+  if (!property.value) return
+  lightboxIndex.value = (lightboxIndex.value - 1 + property.value.images.length) % property.value.images.length
+}
+const nextLightbox = () => {
+  if (!property.value) return
+  lightboxIndex.value = (lightboxIndex.value + 1) % property.value.images.length
+}
+
+const onKeydown = (e: KeyboardEvent) => {
+  if (!isLightboxOpen.value) return
+  if (e.key === 'Escape') closeLightbox()
+  if (e.key === 'ArrowLeft') prevLightbox()
+  if (e.key === 'ArrowRight') nextLightbox()
+}
+
+onMounted(() => window.addEventListener('keydown', onKeydown))
+onBeforeUnmount(() => window.removeEventListener('keydown', onKeydown))
+
+const handleDelete = async () => {
+  if (!property.value) return
+  if (!confirm('Supprimer ce bien définitivement ?')) return
+
+  try {
+    await deleteProperty(String(property.value.id))
+    window.location.href = '/agent/biens'
+  } catch (error) {
+    alert(error instanceof Error ? error.message : 'Erreur lors de la suppression')
+  }
+}
 
 onMounted(async () => {
   try {
@@ -83,21 +131,31 @@ onMounted(async () => {
         <RouterLink :to="`/agent/biens/${property.id}/modifier`" class="inline-flex items-center rounded-lg border border-slate-300 px-4 py-2 transition-colors hover:bg-slate-50">
           <Edit class="mr-2 h-4 w-4" /> Modifier
         </RouterLink>
-        <button class="inline-flex items-center rounded-lg bg-red-600 px-4 py-2 text-white transition-colors hover:bg-red-700">
+        <button @click="handleDelete" class="inline-flex items-center rounded-lg bg-red-600 px-4 py-2 text-white transition-colors hover:bg-red-700">
           <Trash2 class="mr-2 h-4 w-4" /> Supprimer
         </button>
       </div>
     </div>
 
     <div class="grid gap-4 md:grid-cols-3">
-      <div class="aspect-video overflow-hidden rounded-xl bg-slate-100 md:col-span-2">
-        <img :src="property.images[0]" :alt="property.title" class="h-full w-full object-cover" />
+      <div class="aspect-video overflow-hidden rounded-xl bg-slate-100 md:col-span-2 cursor-pointer" @click="openLightbox(0)">
+        <img :src="imageSrc(property.images?.[0])" :alt="property.title" class="h-full w-full object-cover" />
       </div>
       <div class="grid grid-cols-2 gap-4 md:grid-cols-1">
-        <div v-for="(image, index) in property.images.slice(1, 3)" :key="index" class="aspect-video overflow-hidden rounded-xl bg-slate-100">
-          <img :src="image" alt="" class="h-full w-full object-cover" />
+        <div v-for="(image, index) in property.images.slice(1, 3)" :key="index" class="aspect-video overflow-hidden rounded-xl bg-slate-100 cursor-pointer" @click="openLightbox(index + 1)">
+          <img :src="imageSrc(image)" alt="" class="h-full w-full object-cover" />
         </div>
       </div>
+    </div>
+
+    <!-- Lightbox / modal -->
+    <div v-if="isLightboxOpen" class="fixed inset-0 z-50 flex items-center justify-center bg-black/80" @click.self="closeLightbox">
+      <button @click="closeLightbox" class="absolute top-6 right-6 rounded-full bg-black/40 p-2 text-white">✕</button>
+      <button @click="prevLightbox" class="absolute left-6 rounded-full bg-black/40 p-2 text-white">‹</button>
+      <div class="max-w-[90%] max-h-[90%]">
+        <img :src="imageSrc(property.images?.[lightboxIndex])" alt="" class="max-w-full max-h-[80vh] object-contain" />
+      </div>
+      <button @click="nextLightbox" class="absolute right-6 rounded-full bg-black/40 p-2 text-white">›</button>
     </div>
 
     <div class="grid gap-6 lg:grid-cols-3">
@@ -174,7 +232,7 @@ onMounted(async () => {
         <div class="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
           <h3 class="mb-4 text-lg font-bold text-slate-900">Statistiques</h3>
           <div class="space-y-4">
-            <div v-for="stat in sideStats" :key="stat.label" class="flex items-center justify-between border-b border-slate-50 py-2 last:border-0">
+              <div v-for="stat in sideStats" :key="stat.label" class="flex items-center justify-between border-b border-slate-50 py-2 last:border-0">
               <span class="text-slate-500">{{ stat.label }}</span>
               <span class="font-bold" :class="stat.color || 'text-slate-900'">{{ stat.value }}</span>
             </div>

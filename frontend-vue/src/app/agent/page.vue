@@ -31,18 +31,24 @@ const pendingReservations = computed(() =>
 )
 
 const pendingComplaints = computed(() =>
-  complaints.value.filter((item) => item.status === 'ouverte' || item.status === 'en_cours'),
+  complaints.value.filter((item) => (item.statut ?? item.status) === 'en_attente'),
 )
 
 const availableProperties = computed(() =>
   properties.value.filter((item) => item.status === 'disponible'),
 )
 
+const formatDate = (value: unknown) => {
+  if (!value) return '—'
+  const date = value instanceof Date ? value : new Date(value as string)
+  return Number.isNaN(date.getTime()) ? '—' : date.toLocaleDateString('fr-FR')
+}
+
 onMounted(async () => {
   dashboardStats.value = await getDashboardStats()
   properties.value = await getList('/properties')
   reservations.value = await getList('/reservations')
-  complaints.value = await getList('/complaints')
+    complaints.value = await getList('/reclamations')
   clients.value = await getList('/clients')
 })
 </script>
@@ -126,7 +132,7 @@ onMounted(async () => {
                 <p class="text-sm font-medium">{{ reservation.property?.title }}</p>
                 <p class="text-xs text-muted-foreground">
                   {{ reservation.client?.firstName }} {{ reservation.client?.lastName }}
-                  • {{ reservation.startDate.toLocaleDateString('fr-FR') }}
+                  • {{ formatDate(reservation.startDate ?? reservation.start_date) }}
                 </p>
               </div>
             </div>
@@ -173,7 +179,7 @@ onMounted(async () => {
           >
             <p class="font-medium">{{ complaint.subject }}</p>
             <p class="text-xs text-muted-foreground">
-              {{ complaint.createdAt.toLocaleDateString('fr-FR') }}
+              {{ formatDate(complaint.createdAt ?? complaint.created_at) }}
             </p>
           </article>
 
