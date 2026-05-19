@@ -7,7 +7,7 @@ export default function ClientLayout({
 }) {
   return (
     <div className="min-h-screen flex bg-background">
-      <DashboardSidebar role="client" userName="Sophie Leroy" />
+      <DashboardSidebar role="client" />
       <div className="flex-1 flex flex-col min-w-0 lg:ml-0">
         {children}
       </div>

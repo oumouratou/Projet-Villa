@@ -1,12 +1,16 @@
 "use client"
 
-import { useState } from "react"
+import { useState, Suspense } from "react"
 import Link from "next/link"
-import { useRouter } from "next/navigation"
+import { useRouter, useSearchParams } from "next/navigation"
 import { Building2, Mail, Lock, Eye, EyeOff } from "lucide-react"
+import { useAuth } from "@/hooks/use-auth"
+import { backendAPI } from "@/lib/backend-api"
 
-export default function LoginPage() {
+function LoginForm() {
   const router = useRouter()
+  const searchParams = useSearchParams()
+  const { login } = useAuth()
   const [showPassword, setShowPassword] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
   const [formData, setFormData] = useState({
@@ -20,19 +24,18 @@ export default function LoginPage() {
     setError("")
     setIsLoading(true)
 
-    // Simulation de connexion
-    await new Promise(resolve => setTimeout(resolve, 1000))
+    try {
+      const response = await backendAPI.post("/login", formData)
+      const { token, user } = response.data.data
 
-    // Demo: redirect based on email domain
-    if (formData.email.includes("admin")) {
-      router.push("/admin")
-    } else if (formData.email.includes("agent")) {
-      router.push("/agent")
-    } else {
-      router.push("/client")
+      login(token, user)
+      const redirectUrl = searchParams.get("redirect") || (user.role === 'admin' ? '/admin' : user.role === 'agent' ? '/agent' : '/client');
+      router.push(redirectUrl);
+    } catch (err: any) {
+      setError(err.message || "Une erreur est survenue lors de la connexion.")
+    } finally {
+      setIsLoading(false)
     }
-
-    setIsLoading(false)
   }
 
   return (
@@ -156,5 +159,13 @@ export default function LoginPage() {
         </div>
       </div>
     </div>
+  )
+}
+
+export default function LoginPage() {
+  return (
+    <Suspense fallback={<div className="min-h-screen flex items-center justify-center bg-background text-foreground">Chargement...</div>}>
+      <LoginForm />
+    </Suspense>
   )
 }

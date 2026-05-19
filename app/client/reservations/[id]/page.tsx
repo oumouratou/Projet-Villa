@@ -6,7 +6,7 @@ import {
   MessageSquare, Bed, Bath, Maximize
 } from "lucide-react"
 import { DashboardHeader } from "@/components/dashboard-header"
-import { mockReservations } from "@/lib/mock-data"
+import { mockReservations, mockProperties } from "@/lib/mock-data"
 import type { ReservationStatus } from "@/lib/types"
 
 interface ReservationDetailPageProps {
@@ -20,6 +20,8 @@ export default async function ReservationDetailPage({ params }: ReservationDetai
   if (!reservation) {
     notFound()
   }
+
+  const property = mockProperties.find(p => p.id === reservation.propertyId)
 
   const statusColors: Record<ReservationStatus, string> = {
     en_attente: "bg-yellow-100 text-yellow-800 border-yellow-200",
@@ -45,7 +47,9 @@ export default async function ReservationDetailPage({ params }: ReservationDetai
   const StatusIcon = statusIcons[reservation.status]
 
   // Calculer la duree
-  const duration = Math.ceil((reservation.endDate.getTime() - reservation.startDate.getTime()) / (1000 * 60 * 60 * 24 * 30))
+  const start = new Date(reservation.startDate)
+  const end = new Date(reservation.endDate)
+  const duration = Math.ceil((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24 * 30))
 
   return (
     <>
@@ -78,32 +82,32 @@ export default async function ReservationDetailPage({ params }: ReservationDetai
             <div className="bg-card rounded-xl border border-border overflow-hidden">
               <div className="relative h-48">
                 <Image
-                  src={reservation.property?.images[0] || "/placeholder.svg"}
-                  alt={reservation.property?.title || ""}
+                  src={property?.images[0] || "/placeholder.svg"}
+                  alt={property?.title || ""}
                   fill
                   className="object-cover"
                 />
               </div>
               <div className="p-5">
                 <h2 className="text-xl font-semibold text-foreground mb-2">
-                  {reservation.property?.title}
+                  {property?.title}
                 </h2>
                 <div className="flex items-center gap-2 text-muted-foreground mb-4">
                   <MapPin className="h-4 w-4" />
-                  <span>{reservation.property?.address}, {reservation.property?.city}</span>
+                  <span>{property?.address}, {property?.city}</span>
                 </div>
                 <div className="flex items-center gap-6 text-sm text-muted-foreground">
                   <div className="flex items-center gap-1">
                     <Maximize className="h-4 w-4" />
-                    <span>{reservation.property?.surface} m2</span>
+                    <span>{property?.surface} m2</span>
                   </div>
                   <div className="flex items-center gap-1">
                     <Bed className="h-4 w-4" />
-                    <span>{reservation.property?.bedrooms} ch.</span>
+                    <span>{property?.bedrooms} ch.</span>
                   </div>
                   <div className="flex items-center gap-1">
                     <Bath className="h-4 w-4" />
-                    <span>{reservation.property?.bathrooms} sdb</span>
+                    <span>{property?.bathrooms} sdb</span>
                   </div>
                 </div>
               </div>
@@ -117,7 +121,7 @@ export default async function ReservationDetailPage({ params }: ReservationDetai
                   <p className="text-sm text-muted-foreground mb-1">Date de debut</p>
                   <p className="font-medium text-foreground flex items-center gap-2">
                     <Calendar className="h-4 w-4 text-primary" />
-                    {reservation.startDate.toLocaleDateString("fr-FR", {
+                    {new Date(reservation.startDate).toLocaleDateString("fr-FR", {
                       weekday: "long",
                       year: "numeric",
                       month: "long",
@@ -129,7 +133,7 @@ export default async function ReservationDetailPage({ params }: ReservationDetai
                   <p className="text-sm text-muted-foreground mb-1">Date de fin</p>
                   <p className="font-medium text-foreground flex items-center gap-2">
                     <Calendar className="h-4 w-4 text-primary" />
-                    {reservation.endDate.toLocaleDateString("fr-FR", {
+                    {new Date(reservation.endDate).toLocaleDateString("fr-FR", {
                       weekday: "long",
                       year: "numeric",
                       month: "long",
@@ -144,7 +148,7 @@ export default async function ReservationDetailPage({ params }: ReservationDetai
                 <div>
                   <p className="text-sm text-muted-foreground mb-1">Date de demande</p>
                   <p className="font-medium text-foreground">
-                    {reservation.createdAt.toLocaleDateString("fr-FR")}
+                    {new Date(reservation.createdAt).toLocaleDateString("fr-FR")}
                   </p>
                 </div>
               </div>
@@ -170,7 +174,7 @@ export default async function ReservationDetailPage({ params }: ReservationDetai
               <div className="space-y-3 mb-4">
                 <div className="flex justify-between text-sm">
                   <span className="text-muted-foreground">Loyer mensuel</span>
-                  <span className="text-foreground">{reservation.property?.price.toLocaleString()} EUR</span>
+                  <span className="text-foreground">{property?.pricePerNight.toLocaleString()} EUR</span>
                 </div>
                 <div className="flex justify-between text-sm">
                   <span className="text-muted-foreground">Duree</span>

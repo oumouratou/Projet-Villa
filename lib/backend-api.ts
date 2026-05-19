@@ -63,6 +63,34 @@ async function fetchApi<T>(path: string, init?: RequestInit): Promise<T> {
   return (await res.json()) as T
 }
 
+export const backendAPI = {
+  async get(path: string) {
+    const token = typeof window !== "undefined" ? localStorage.getItem("auth_token") : null;
+    const headers: Record<string, string> = {};
+    if (token) {
+      headers.Authorization = `Bearer ${token}`;
+    }
+    const data = await fetchApi<any>(path, { headers });
+    return { data };
+  },
+  async post(path: string, body?: any) {
+    const token = typeof window !== "undefined" ? localStorage.getItem("auth_token") : null;
+    const headers: Record<string, string> = {
+      "Content-Type": "application/json",
+    };
+    if (token) {
+      headers.Authorization = `Bearer ${token}`;
+    }
+    const data = await fetchApi<any>(path, {
+      method: "POST",
+      headers,
+      body: body ? JSON.stringify(body) : undefined,
+    });
+    return { data };
+  }
+};
+
+
 function mapOption(option: BackendOption): PropertyOption {
   return {
     id: String(option.id),
@@ -135,7 +163,7 @@ function mapReservation(r: BackendReservation) {
     propertyId: String(r.bien_immobilier_id),
     startDate: r.date_debut ? new Date(r.date_debut) : null,
     endDate: r.date_fin ? new Date(r.date_fin) : null,
-    status: r.statut ?? r['status'] ?? 'en_attente',
+    status: r.statut ?? 'en_attente',
     agentComment: r.commentaire_agent ?? null,
     totalPrice: Number(r.totalPrice ?? 0),
     createdAt: r.created_at ?? new Date().toISOString(),
@@ -195,7 +223,7 @@ export async function updateReservation(id: string, data: Record<string, any>, t
 }
 
 export async function createProperty(
-  property: Omit<Property, 'id' | 'createdAt' | 'images'> & { imageUrl?: string; options?: string[] },
+  property: Omit<Property, 'id' | 'createdAt' | 'images' | 'options'> & { imageUrl?: string; options?: string[] },
   token: string
 ): Promise<Property> {
   const payload = await fetchApi<ApiResponse<BackendProperty>>("/properties", {
@@ -226,7 +254,7 @@ export async function createProperty(
 
 export async function updateProperty(
   id: string,
-  property: Partial<Omit<Property, 'id' | 'createdAt' | 'images'> & { imageUrl?: string; options?: string[] }>,
+  property: Partial<Omit<Property, 'id' | 'createdAt' | 'images' | 'options'> & { imageUrl?: string; options?: string[] }>,
   token: string
 ): Promise<Property> {
   const payload = await fetchApi<ApiResponse<BackendProperty>>(`/properties/${encodeURIComponent(id)}`, {

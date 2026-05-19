@@ -5,7 +5,7 @@ import Link from "next/link"
 import { useRouter, useSearchParams } from "next/navigation"
 import { ArrowLeft, MessageSquare, CheckCircle } from "lucide-react"
 import { DashboardHeader } from "@/components/dashboard-header"
-import { mockReservations } from "@/lib/mock-data"
+import { mockReservations, mockProperties } from "@/lib/mock-data"
 
 function NewComplaintForm() {
   const router = useRouter()
@@ -23,7 +23,7 @@ function NewComplaintForm() {
 
   // Reservations confirmees du client
   const clientReservations = mockReservations.filter(
-    r => r.clientId === "client1" && r.status === "confirmee"
+    r => r.clientId === "client-1" && r.status === "confirmee"
   )
 
   const validate = () => {
@@ -97,11 +97,14 @@ function NewComplaintForm() {
             className="w-full px-4 py-2.5 bg-background border border-input rounded-lg text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
           >
             <option value="">Aucune reservation liee</option>
-            {clientReservations.map((res) => (
-              <option key={res.id} value={res.id}>
-                {res.property?.title} - {res.startDate.toLocaleDateString("fr-FR")}
-              </option>
-            ))}
+            {clientReservations.map((res) => {
+              const property = mockProperties.find(p => p.id === res.propertyId)
+              return (
+                <option key={res.id} value={res.id}>
+                  {property?.title} - {new Date(res.startDate).toLocaleDateString("fr-FR")}
+                </option>
+              )
+            })}
           </select>
           <p className="text-xs text-muted-foreground mt-2">
             Liez votre reclamation a une reservation si elle concerne un bien specifique

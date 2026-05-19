@@ -8,7 +8,8 @@ import {
   Droplet, Trees, LogIn, UserPlus, Sparkles, Star,
 } from 'lucide-vue-next'
 import { createReservation, getProperty } from '@/lib/api'
-import { getStoredToken } from '@/lib/session'
+import { getStoredToken, getStoredRole } from '@/lib/session'
+import { resolveImageSrc } from '@/lib/image'
 
 const route  = useRoute()
 const router = useRouter()
@@ -25,15 +26,17 @@ const bookingSuccess    = ref(false)
 const bookingError      = ref<string | null>(null)
 
 const isLoggedIn = computed(() => Boolean(getStoredToken()))
+const storedRole = computed(() => getStoredRole())
+const isClient = computed(() => isLoggedIn.value && storedRole.value === 'client')
+const isNonClientUser = computed(() => isLoggedIn.value && storedRole.value !== 'client')
 
-const reservationPageUrl = computed(() =>
-  `/client/reservations/nouvelle?bien=${route.params.id}`
-)
+// Redirect back to THIS property page after login/register
+const currentPageUrl = computed(() => `/biens/${route.params.id}`)
 const loginUrl = computed(() =>
-  `/connexion?redirect=${encodeURIComponent(reservationPageUrl.value)}`
+  `/connexion?redirect=${encodeURIComponent(currentPageUrl.value)}`
 )
 const registerUrl = computed(() =>
-  `/inscription?redirect=${encodeURIComponent(reservationPageUrl.value)}`
+  `/inscription?redirect=${encodeURIComponent(currentPageUrl.value)}`
 )
 
 const fallbackGallery = [
@@ -45,12 +48,13 @@ const fallbackGallery = [
 ]
 
 const galleryImages = computed<string[]>(() => {
-  const base = property.value?.images?.filter(Boolean) ?? []
-  const imgs = base.length >= 5 ? base : [
-    ...base,
-    ...fallbackGallery.slice(base.length),
-  ]
-  return imgs.slice(0, 5)
+  const base = property.value?.images?.filter(Boolean).map((img: string) => resolveImageSrc(img)) ?? []
+  
+  if (base.length === 0) {
+    return fallbackGallery
+  }
+  
+  return base
 })
 
 const mainImage = computed(() =>
@@ -227,13 +231,13 @@ onUnmounted(stopSlideshow)
       </div>
     </div>
 
-    <div class="mx-auto -mt-8 max-w-7xl px-4 sm:px-6 lg:px-8">
-      <div class="grid grid-cols-5 gap-2 rounded-2xl overflow-hidden shadow-xl">
-        <button v-for="(img, i) in galleryImages" :key="img"
+    <div class="mx-auto -mt-8 max-w-7xl px-4 sm:px-6 lg:px-8 relative z-10">
+      <div class="flex gap-2 overflow-x-auto pb-4 pt-1 px-1 snap-x no-scrollbar">
+        <button v-for="(img, i) in galleryImages" :key="img + i"
           @click="() => { stopSlideshow(); activeImageIndex = i }"
-          class="relative overflow-hidden transition-all"
-          :class="activeImageIndex === i ? 'ring-4 ring-sky-500 ring-offset-2' : 'opacity-70 hover:opacity-100'">
-          <img :src="img" class="h-20 w-full object-cover" :alt="`Vue ${i + 1}`" />
+          class="relative flex-shrink-0 w-28 sm:w-36 md:w-48 overflow-hidden rounded-xl shadow-md transition-all snap-start"
+          :class="activeImageIndex === i ? 'ring-4 ring-sky-500 ring-offset-2 scale-100' : 'opacity-70 hover:opacity-100 scale-95 hover:scale-100'">
+          <img :src="img" class="h-20 sm:h-24 w-full object-cover" :alt="`Vue ${i + 1}`" />
           <div v-if="activeImageIndex === i" class="absolute inset-0 bg-sky-500/20" />
         </button>
       </div>
@@ -320,22 +324,43 @@ onUnmounted(stopSlideshow)
 
               <div class="p-5 space-y-4">
 
-                <div v-if="!isLoggedIn" class="space-y-3">
-                  <div class="rounded-xl bg-amber-50 border border-amber-200 p-4">
-                    <p class="font-semibold text-amber-900 text-sm">Connexion requise</p>
-                    <p class="mt-1 text-xs text-amber-700">Vous devez avoir un compte pour réserver ce bien.</p>
+                <div v-if="!isLoggedIn" class="space-y-4">
+                  <div class="rounded-xl bg-amber-50 border border-amber-200 p-5 text-center">
+                    <div class="flex h-12 w-12 items-center justify-center rounded-full bg-amber-100 mx-auto mb-3">
+                      <LogIn class="h-6 w-6 text-amber-600" />
+                    </div>
+                    <p class="font-bold text-amber-900 text-base">Connexion requise</p>
+                    <p class="mt-1.5 text-sm text-amber-700 leading-relaxed">
+                      Vous devez avoir un compte client pour réserver ce bien.
+                    </p>
                   </div>
                   <RouterLink :to="loginUrl"
-                    class="flex w-full items-center justify-center gap-2 rounded-xl bg-sky-500 px-4 py-3.5 font-bold text-white hover:bg-sky-600 transition-colors">
-                    <LogIn class="h-5 w-5" />Se connecter pour réserver
+                    class="flex w-full items-center justify-center gap-2 rounded-xl bg-sky-500 px-4 py-4 font-bold text-white hover:bg-sky-600 transition-colors shadow-lg shadow-sky-200 text-base">
+                    <LogIn class="h-5 w-5" />Se connecter
                   </RouterLink>
                   <RouterLink :to="registerUrl"
-                    class="flex w-full items-center justify-center gap-2 rounded-xl border-2 border-slate-200 px-4 py-3 font-semibold text-slate-700 hover:bg-slate-50 transition-colors text-sm">
-                    <UserPlus class="h-4 w-4" />Créer un compte gratuitement
+                    class="flex w-full items-center justify-center gap-2 rounded-xl border-2 border-slate-200 px-4 py-3.5 font-bold text-slate-700 hover:bg-slate-50 hover:border-sky-300 transition-all text-sm">
+                    <UserPlus class="h-4 w-4" />Créer un compte client
                   </RouterLink>
                 </div>
 
-                <template v-else>
+                <div v-else-if="isNonClientUser" class="space-y-4">
+                  <div class="rounded-xl bg-amber-50 border border-amber-200 p-5 text-center">
+                    <div class="flex h-12 w-12 items-center justify-center rounded-full bg-amber-100 mx-auto mb-3">
+                      <UserPlus class="h-6 w-6 text-amber-600" />
+                    </div>
+                    <p class="font-bold text-amber-900 text-base">Compte client requis</p>
+                    <p class="mt-1.5 text-sm text-amber-700 leading-relaxed">
+                      Vous êtes actuellement connecté en tant que membre de l'équipe ({{ storedRole }}). Pour réserver ce bien, veuillez créer un compte client.
+                    </p>
+                  </div>
+                  <RouterLink :to="registerUrl"
+                    class="flex w-full items-center justify-center gap-2 rounded-xl bg-sky-500 px-4 py-4 font-bold text-white hover:bg-sky-600 transition-colors shadow-lg shadow-sky-200 text-base">
+                    <UserPlus class="h-5 w-5" />Créer un compte client
+                  </RouterLink>
+                </div>
+
+                <template v-else-if="isClient">
                   <div v-if="property.status !== 'disponible'" class="rounded-xl bg-red-50 border border-red-200 p-4 text-center">
                     <p class="font-semibold text-red-700">Ce bien n'est pas disponible</p>
                   </div>
@@ -405,4 +430,12 @@ onUnmounted(stopSlideshow)
 }
 .fade-slide-enter-from { opacity: 0; transform: scale(1.03); }
 .fade-slide-leave-to   { opacity: 0; transform: scale(0.97); }
+
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
 </style>

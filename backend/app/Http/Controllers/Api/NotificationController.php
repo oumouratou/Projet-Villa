@@ -39,63 +39,29 @@ class NotificationController extends Controller
         }
 
         $pendingReservations = (clone $reservationsQuery)->where('statut', 'en_attente')->count();
-        $openComplaints = (clone $complaintsQuery)->whereIn('statut', ['ouverte', 'en_cours'])->count();
+        $openComplaints = (clone $complaintsQuery)->whereIn('statut', ['ouverte', 'en_cours', 'en_attente'])->count();
 
-        $latestReservations = (clone $reservationsQuery)
-            ->with(['bien:id,title,city'])
-            ->orderByDesc('id')
-            ->limit(5)
-            ->get(['id', 'bien_immobilier_id', 'statut', 'created_at']);
-
-        $latestComplaints = (clone $complaintsQuery)
-            ->with(['reservation:id,bien_immobilier_id', 'reservation.bien:id,title,city'])
-            ->orderByDesc('id')
-            ->limit(5)
-            ->get(['id', 'reservation_id', 'sujet', 'statut', 'created_at']);
-
+        $dbNotifications = $user->notifications()->limit(15)->get();
         $notifications = [];
 
-        foreach ($latestReservations as $reservation) {
-            $propertyTitle = $reservation->bien?->title;
-            $message = $propertyTitle
-                ? "Nouvelle reservation: {$propertyTitle}"
-                : "Nouvelle reservation #{$reservation->id}";
-
+        foreach ($dbNotifications as $notif) {
+            $data = $notif->data;
+            
             $notifications[] = [
-                'id' => (int) $reservation->id,
-                'type' => 'reservation',
-                'message' => $message,
-                'status' => (string) $reservation->statut,
-                'time' => $reservation->created_at?->toISOString(),
-                'unread' => (string) $reservation->statut === 'en_attente',
+                'id' => $notif->id,
+                'db_id' => $notif->id,
+                'type' => $data['type'] ?? 'info',
+                'message' => $data['message'] ?? 'Nouvelle notification',
+                'status' => $data['status'] ?? null,
+                'subject' => $data['subject'] ?? null,
+                'reservation_id' => $data['reservation_id'] ?? null,
+                'reclamation_id' => $data['reclamation_id'] ?? null,
+                'time' => $notif->created_at?->toISOString(),
+                'unread' => is_null($notif->read_at),
             ];
         }
 
-        foreach ($latestComplaints as $complaint) {
-            $propertyTitle = $complaint->reservation?->bien?->title;
-            $message = $propertyTitle
-                ? "Nouvelle reclamation: {$propertyTitle}"
-                : "Nouvelle reclamation #{$complaint->id}";
-
-            $notifications[] = [
-                'id' => (int) $complaint->id,
-                'type' => 'complaint',
-                'message' => $message,
-                'subject' => (string) $complaint->sujet,
-                'status' => (string) $complaint->statut,
-                'time' => $complaint->created_at?->toISOString(),
-                'unread' => in_array((string) $complaint->statut, ['ouverte', 'en_cours'], true),
-            ];
-        }
-
-        usort($notifications, function (array $a, array $b) {
-            $ta = $a['time'] ?? '';
-            $tb = $b['time'] ?? '';
-            return strcmp((string) $tb, (string) $ta);
-        });
-
-        $notifications = array_slice($notifications, 0, 7);
-        $unreadCount = count(array_filter($notifications, fn (array $item) => (bool) ($item['unread'] ?? false)));
+        $unreadCount = $user->unreadNotifications()->count();
 
         return response()->json([
             'data' => [

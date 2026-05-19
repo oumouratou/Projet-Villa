@@ -4,10 +4,11 @@ namespace App\Notifications;
 
 use App\Models\Reservation;
 use Illuminate\Bus\Queueable;
+use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Notifications\Messages\MailMessage;
 use Illuminate\Notifications\Notification;
 
-class ReservationStatusNotification extends Notification
+class ReservationStatusNotification extends Notification implements ShouldQueue
 {
     use Queueable;
 
@@ -15,7 +16,27 @@ class ReservationStatusNotification extends Notification
 
     public function via(object $notifiable): array
     {
-        return ['mail'];
+        return ['mail', 'database'];
+    }
+
+    public function toArray(object $notifiable): array
+    {
+        $status = $this->reservation->statut ?? 'en_attente';
+        $bien = $this->reservation->bien->title ?? 'un bien';
+        
+        $statusText = match ($status) {
+            'confirmee' => 'confirmée',
+            'refusee' => 'refusée',
+            'annulee' => 'annulée',
+            default => 'mise à jour',
+        };
+
+        return [
+            'reservation_id' => $this->reservation->id,
+            'type' => 'reservation',
+            'message' => "Votre réservation pour {$bien} a été {$statusText}.",
+            'status' => $status,
+        ];
     }
 
     public function toMail(object $notifiable): MailMessage

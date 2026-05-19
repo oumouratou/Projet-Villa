@@ -18,7 +18,6 @@ const imageSrc = (value?: string | null) => resolveImageSrc(value)
 
 const clientDisplayName = (client: any) => {
   const fullName = `${client?.first_name ?? ''} ${client?.last_name ?? ''}`.trim()
-
   return client?.name ?? (fullName || client?.email || '—')
 }
 
@@ -26,7 +25,6 @@ const filtered = computed(() =>
   reservationsList.value.filter(r => {
     const property = reservationProperty(r)
     const propertyTitle = property?.title ?? property?.titre ?? ''
-
     const matchSearch =
       propertyTitle.toLowerCase().includes(searchTerm.value.toLowerCase()) ||
       clientDisplayName(r.client).toLowerCase().includes(searchTerm.value.toLowerCase())
@@ -89,41 +87,41 @@ onMounted(async () => {
 </script>
 
 <template>
-  <div class="space-y-6 p-6">
+  <div class="space-y-6 p-6 lg:p-8 max-w-7xl mx-auto bg-slate-50 min-h-full">
 
     <div>
-      <h1 class="text-3xl font-black text-foreground">Gestion des réservations</h1>
-      <p class="mt-1 text-muted-foreground">Acceptez ou refusez les demandes de vos clients</p>
+      <h1 class="text-3xl font-black text-slate-950 tracking-tight">Gestion des réservations</h1>
+      <p class="mt-1 text-slate-500">Acceptez ou refusez les demandes de vos clients</p>
     </div>
 
-    <div class="grid grid-cols-2 gap-4 lg:grid-cols-4">
-      <div class="rounded-xl border border-border bg-card p-4 flex items-center gap-3">
-        <CalendarDays class="h-8 w-8 text-sky-500 flex-shrink-0" />
-        <div><p class="text-2xl font-black">{{ total }}</p><p class="text-xs text-muted-foreground">Total</p></div>
+    <div class="grid grid-cols-2 gap-5 lg:grid-cols-4">
+      <div class="rounded-[1.5rem] border border-slate-100 bg-white p-5 shadow-sm flex items-center gap-4">
+        <div class="flex h-14 w-14 items-center justify-center rounded-2xl bg-sky-50 text-sky-600"><CalendarDays class="h-7 w-7" /></div>
+        <div><p class="text-3xl font-black text-slate-900">{{ total }}</p><p class="text-sm font-semibold text-slate-500">Total</p></div>
       </div>
-      <div class="rounded-xl border border-border bg-card p-4 flex items-center gap-3">
-        <Clock class="h-8 w-8 text-amber-500 flex-shrink-0" />
-        <div><p class="text-2xl font-black text-amber-600">{{ pending }}</p><p class="text-xs text-muted-foreground">En attente</p></div>
+      <div class="rounded-[1.5rem] border border-amber-100 bg-amber-50/50 p-5 shadow-sm flex items-center gap-4">
+        <div class="flex h-14 w-14 items-center justify-center rounded-2xl bg-amber-100 text-amber-600"><Clock class="h-7 w-7" /></div>
+        <div><p class="text-3xl font-black text-amber-700">{{ pending }}</p><p class="text-sm font-semibold text-amber-600">En attente</p></div>
       </div>
-      <div class="rounded-xl border border-border bg-card p-4 flex items-center gap-3">
-        <CheckCircle2 class="h-8 w-8 text-emerald-500 flex-shrink-0" />
-        <div><p class="text-2xl font-black text-emerald-600">{{ confirmed }}</p><p class="text-xs text-muted-foreground">Confirmées</p></div>
+      <div class="rounded-[1.5rem] border border-emerald-100 bg-emerald-50/50 p-5 shadow-sm flex items-center gap-4">
+        <div class="flex h-14 w-14 items-center justify-center rounded-2xl bg-emerald-100 text-emerald-600"><CheckCircle2 class="h-7 w-7" /></div>
+        <div><p class="text-3xl font-black text-emerald-700">{{ confirmed }}</p><p class="text-sm font-semibold text-emerald-600">Confirmées</p></div>
       </div>
-      <div class="rounded-xl border border-border bg-card p-4 flex items-center gap-3">
-        <XCircle class="h-8 w-8 text-red-500 flex-shrink-0" />
-        <div><p class="text-2xl font-black text-red-600">{{ refused }}</p><p class="text-xs text-muted-foreground">Refusées</p></div>
+      <div class="rounded-[1.5rem] border border-red-100 bg-red-50/50 p-5 shadow-sm flex items-center gap-4">
+        <div class="flex h-14 w-14 items-center justify-center rounded-2xl bg-red-100 text-red-600"><XCircle class="h-7 w-7" /></div>
+        <div><p class="text-3xl font-black text-red-700">{{ refused }}</p><p class="text-sm font-semibold text-red-600">Refusées</p></div>
       </div>
     </div>
 
-    <div class="rounded-xl border border-border bg-card p-4 flex flex-col gap-3 sm:flex-row">
+    <div class="rounded-[1.5rem] border border-slate-100 bg-white p-5 shadow-sm flex flex-col gap-3 sm:flex-row">
       <div class="relative flex-1">
-        <Search class="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+        <Search class="absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
         <input v-model="searchTerm" placeholder="Rechercher par bien ou client..."
-          class="w-full rounded-lg border border-input bg-background py-2 pl-10 pr-3 focus:outline-none focus:ring-2 focus:ring-primary/20" />
+          class="w-full rounded-xl border border-slate-200 bg-slate-50 py-3 pl-11 pr-4 text-sm focus:border-sky-500 focus:outline-none focus:ring-2 focus:ring-sky-500/20 transition-all" />
       </div>
       <div class="flex items-center gap-2">
-        <Filter class="h-4 w-4 text-muted-foreground" />
-        <select v-model="statusFilter" class="rounded-lg border border-input bg-background px-3 py-2 text-sm">
+        <Filter class="h-4 w-4 text-slate-400" />
+        <select v-model="statusFilter" class="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-sky-500/20">
           <option value="all">Tous les statuts</option>
           <option value="en_attente">En attente</option>
           <option value="confirmee">Confirmée</option>
@@ -132,77 +130,78 @@ onMounted(async () => {
       </div>
     </div>
 
-    <div class="rounded-xl border border-border bg-card overflow-hidden">
-      <div class="border-b border-border p-5">
-        <h2 class="flex items-center gap-2 font-semibold">
-          <CalendarDays class="h-5 w-5 text-primary" />{{ filtered?.length ?? 0 }} réservation(s)
+    <div class="rounded-[1.5rem] border border-slate-100 bg-white shadow-sm overflow-hidden">
+      <div class="border-b border-slate-100 p-5 bg-slate-50/50">
+        <h2 class="flex items-center gap-2 font-bold text-slate-950">
+          <CalendarDays class="h-5 w-5 text-sky-600" />{{ filtered?.length ?? 0 }} réservation(s)
         </h2>
       </div>
 
       <div v-if="loading" class="p-6 space-y-3">
-        <div v-for="i in 4" :key="i" class="h-20 animate-pulse rounded-xl bg-muted" />
+        <div v-for="i in 4" :key="i" class="h-20 animate-pulse rounded-xl bg-slate-100" />
       </div>
 
-      <div v-else-if="(filtered?.length ?? 0) === 0" class="p-12 text-center">
-        <CalendarDays class="mx-auto mb-3 h-12 w-12 text-muted-foreground" />
-        <p class="text-muted-foreground">Aucune réservation trouvée</p>
+      <div v-else-if="(filtered?.length ?? 0) === 0" class="p-16 text-center">
+        <CalendarDays class="mx-auto mb-3 h-14 w-14 text-slate-200" />
+        <p class="font-bold text-slate-700">Aucune réservation trouvée</p>
+        <p class="text-sm text-slate-500 mt-1">Essayez d'ajuster vos filtres</p>
       </div>
 
-      <div v-else class="divide-y divide-border">
-        <div v-for="r in filtered" :key="r.id" class="p-4 hover:bg-muted/30 transition-colors">
+      <div v-else class="divide-y divide-slate-100">
+        <div v-for="r in filtered" :key="r.id" class="p-5 hover:bg-slate-50/50 transition-colors">
           <div class="flex flex-col gap-4 lg:flex-row lg:items-center">
 
-            <div class="flex items-center gap-3 flex-1 min-w-0">
+            <div class="flex items-center gap-4 flex-1 min-w-0">
               <img
                 :src="imageSrc(reservationProperty(r)?.images?.[0])"
-                class="h-14 w-20 rounded-lg object-cover flex-shrink-0" :alt="reservationProperty(r)?.title || reservationProperty(r)?.titre || 'Bien'" />
+                class="h-16 w-24 rounded-xl object-cover flex-shrink-0 shadow-sm" :alt="reservationProperty(r)?.title || reservationProperty(r)?.titre || 'Bien'" />
               <div class="min-w-0">
-                <p class="font-semibold text-foreground truncate">{{ reservationProperty(r)?.title ?? reservationProperty(r)?.titre ?? 'Bien #' + r.id }}</p>
-                <p class="text-xs text-muted-foreground">{{ reservationProperty(r)?.city ?? reservationProperty(r)?.ville ?? '—' }}</p>
+                <p class="font-bold text-slate-900 truncate">{{ reservationProperty(r)?.title ?? reservationProperty(r)?.titre ?? 'Bien #' + r.id }}</p>
+                <p class="text-xs font-medium text-slate-500 mt-0.5">{{ reservationProperty(r)?.city ?? reservationProperty(r)?.ville ?? '—' }}</p>
               </div>
             </div>
 
             <div class="lg:w-40">
-              <p class="text-sm font-medium text-foreground">{{ clientName(r) }}</p>
-              <p class="text-xs text-muted-foreground truncate">{{ r.client?.email }}</p>
+              <p class="text-sm font-bold text-slate-900">{{ clientName(r) }}</p>
+              <p class="text-xs font-medium text-slate-500 truncate">{{ r.client?.email }}</p>
             </div>
 
             <div class="text-sm lg:w-36">
-              <p class="font-medium">{{ new Date(r.date_debut ?? r.start_date ?? r.startDate).toLocaleDateString('fr-FR') }}</p>
-              <p class="text-xs text-muted-foreground">au {{ new Date(r.date_fin ?? r.end_date ?? r.endDate).toLocaleDateString('fr-FR') }}</p>
+              <p class="font-bold text-slate-900">{{ new Date(r.date_debut ?? r.start_date ?? r.startDate).toLocaleDateString('fr-FR') }}</p>
+              <p class="text-xs font-medium text-slate-500">au {{ new Date(r.date_fin ?? r.end_date ?? r.endDate).toLocaleDateString('fr-FR') }}</p>
             </div>
 
-            <div class="text-sm font-semibold lg:w-28">
+            <div class="text-sm font-black text-sky-600 lg:w-28">
               {{ Number(r.total_price ?? r.totalPrice ?? 0).toLocaleString() }} FCFA
             </div>
 
-            <div class="flex flex-wrap items-center gap-2 lg:w-52 justify-end">
+            <div class="flex flex-wrap items-center gap-2 lg:w-56 justify-end">
 
               <div v-if="feedback?.id === String(r.id)"
-                class="w-full rounded-lg px-3 py-1.5 text-xs font-semibold"
-                :class="feedback.type === 'ok' ? 'bg-emerald-50 text-emerald-800' : 'bg-red-50 text-red-800'">
+                class="w-full rounded-xl px-3 py-2 text-xs font-bold"
+                :class="feedback.type === 'ok' ? 'bg-emerald-50 text-emerald-700 border border-emerald-100' : 'bg-red-50 text-red-700 border border-red-100'">
                 {{ feedback.msg }}
               </div>
 
-              <span class="rounded-full px-3 py-1 text-xs font-bold" :class="statusCls[reservationStatus(r)] ?? 'bg-slate-100 text-slate-600'">
+              <span class="rounded-full px-3 py-1.5 text-xs font-black" :class="statusCls[reservationStatus(r)] ?? 'bg-slate-100 text-slate-600'">
                 {{ statusLbl[reservationStatus(r)] ?? reservationStatus(r) }}
               </span>
 
               <template v-if="reservationStatus(r) === 'en_attente'">
                 <button @click="setStatus(r, 'confirmee')" :disabled="savingId === String(r.id)"
-                  class="inline-flex items-center gap-1 rounded-lg bg-emerald-600 px-3 py-1.5 text-xs font-bold text-white hover:bg-emerald-700 disabled:opacity-50 transition-colors">
+                  class="inline-flex items-center gap-1.5 rounded-xl bg-emerald-500 px-3 py-2 text-xs font-bold text-white hover:bg-emerald-600 disabled:opacity-50 transition-all shadow-sm">
                   <RefreshCw v-if="savingId === String(r.id)" class="h-3 w-3 animate-spin" />
-                  <CheckCircle2 v-else class="h-3 w-3" />
+                  <CheckCircle2 v-else class="h-3.5 w-3.5" />
                   Accepter
                 </button>
                 <button @click="setStatus(r, 'refusee')" :disabled="savingId === String(r.id)"
-                  class="inline-flex items-center gap-1 rounded-lg bg-red-600 px-3 py-1.5 text-xs font-bold text-white hover:bg-red-700 disabled:opacity-50 transition-colors">
-                  <XCircle class="h-3 w-3" />Refuser
+                  class="inline-flex items-center gap-1.5 rounded-xl bg-red-500 px-3 py-2 text-xs font-bold text-white hover:bg-red-600 disabled:opacity-50 transition-all shadow-sm">
+                  <XCircle class="h-3.5 w-3.5" />Refuser
                 </button>
               </template>
 
               <RouterLink :to="`/agent/reservations/${r.id}`"
-                class="inline-flex items-center gap-1 rounded-lg border border-input px-3 py-1.5 text-xs font-medium text-foreground hover:bg-muted transition-colors">
+                class="inline-flex items-center gap-1.5 rounded-xl border border-slate-200 px-3 py-2 text-xs font-bold text-slate-700 hover:bg-slate-50 transition-colors">
                 <Eye class="h-3.5 w-3.5" />Détail
               </RouterLink>
             </div>

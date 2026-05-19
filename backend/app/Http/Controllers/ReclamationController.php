@@ -4,8 +4,11 @@ namespace App\Http\Controllers;
 
 use App\Models\Reclamation;
 use App\Models\Reservation;
+use App\Notifications\NewReclamationForAgent;
 use App\Notifications\ReclamationResponseNotification;
+use App\Notifications\ReclamationStatusNotification;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Log;
 
 class ReclamationController extends Controller
 {
@@ -81,6 +84,18 @@ class ReclamationController extends Controller
             'agent:id,name,email,status',
         ]);
 
+        // Notify agent about new reclamation
+        if ($reservation->agent_id) {
+            $agent = \App\Models\User::find($reservation->agent_id);
+            if ($agent) {
+                try {
+                    $agent->notify(new NewReclamationForAgent($reclamation));
+                } catch (\Throwable $e) {
+                    Log::warning('Notification new reclamation for agent failed: ' . $e->getMessage());
+                }
+            }
+        }
+
         return response()->json([
             'data' => $this->serializeReclamation($reclamation),
         ], 201);
@@ -144,6 +159,7 @@ class ReclamationController extends Controller
             unset($payload['description']);
         }
 
+        $oldStatut = $reclamation->statut;
         $reclamation->update($payload);
 
         $reclamation->load([
@@ -154,6 +170,18 @@ class ReclamationController extends Controller
             'agent:id,name,email,status',
         ]);
 
+        // Notification au client si statut changé (approuver/refuser)
+        if (isset($payload['statut']) && $payload['statut'] !== $oldStatut) {
+            $clientUser = $reclamation->client?->user;
+            if ($clientUser) {
+                try {
+                    $clientUser->notify(new ReclamationStatusNotification($reclamation));
+                } catch (\Throwable $e) {
+                    Log::warning('Notification reclamation status failed: ' . $e->getMessage());
+                }
+            }
+        }
+
         // Notification email au client si réponse agent ajoutée
         if (isset($payload['agent_response']) && $payload['agent_response']) {
             $clientUser = $reclamation->client?->user;
@@ -161,7 +189,7 @@ class ReclamationController extends Controller
                 try {
                     $clientUser->notify(new ReclamationResponseNotification($reclamation));
                 } catch (\Throwable $e) {
-                    \Illuminate\Support\Facades\Log::warning('Notification email failed: ' . $e->getMessage());
+                    Log::warning('Notification email failed: ' . $e->getMessage());
                 }
             }
         }

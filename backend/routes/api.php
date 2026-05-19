@@ -12,6 +12,9 @@ use App\Http\Controllers\ReservationController;
 use App\Http\Controllers\ReclamationController;
 use App\Http\Controllers\Api\RealEstateController;
 use App\Http\Controllers\UserController;
+use App\Models\User;
+use App\Http\Controllers\Auth\ForgotPasswordController;
+use App\Http\Controllers\Auth\ResetPasswordController;
 use App\Http\Controllers\Api\NotificationController;
 
 // Authentication publique
@@ -22,6 +25,8 @@ Route::post('/login', [AuthController::class, 'login']);
 Route::prefix('auth')->group(function () {
     Route::post('/register', [AuthController::class, 'register']);
     Route::post('/login', [AuthController::class, 'login']);
+    Route::post('/forgot-password', [ForgotPasswordController::class, 'sendResetLinkEmail']);
+    Route::post('/reset-password', [ResetPasswordController::class, 'reset']);
     Route::post('/logout', [AuthController::class, 'logout'])->middleware('auth:sanctum');
     Route::get('/me', [AuthController::class, 'me'])->middleware('auth:sanctum');
 });
@@ -106,5 +111,27 @@ Route::prefix('v1')->group(function () {
         Route::delete('properties/{bien}', [BienImmobilierController::class, 'destroy']);
         // Uploads v1
         Route::post('uploads', [\App\Http\Controllers\UploadController::class, 'store']);
+    });
+});
+
+Route::middleware('auth:sanctum')->group(function () {
+    Route::get('/user', function (Request $request) {
+        $user = User::with(['roles', 'client', 'agent'])->find($request->user()->id);
+        return response()->json($user);
+    });
+
+    Route::get('/notifications', function (Request $request) {
+        return $request->user()->notifications;
+    });
+
+    Route::post('/notifications/mark-all-read', function (Request $request) {
+        $request->user()->unreadNotifications->markAsRead();
+        return response()->json(['status' => 'success']);
+    });
+
+    Route::post('/notifications/{id}/read', function (Request $request, $id) {
+        $notification = $request->user()->notifications()->findOrFail($id);
+        $notification->markAsRead();
+        return response()->json(['status' => 'success']);
     });
 });

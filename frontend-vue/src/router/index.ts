@@ -15,6 +15,7 @@ const routes: RouteRecordRaw[] = [
   { path: '/admin/permissions', component: () => import('@/app/admin/permissions/page.vue') },
   { path: '/admin/roles', component: () => import('@/app/admin/roles/page.vue') },
   { path: '/admin/options', component: () => import('@/app/admin/options/page.vue') },
+  { path: '/admin/activites', component: () => import('@/app/admin/activites/page.vue') },
   { path: '/admin/utilisateurs', component: () => import('@/app/admin/utilisateurs/page.vue') },
   { path: '/admin/utilisateurs/nouveau', component: () => import('@/app/admin/utilisateurs/nouveau/page.vue') },
   { path: '/admin/utilisateurs/:id', component: () => import('@/app/admin/utilisateurs/[id]/page.vue') },

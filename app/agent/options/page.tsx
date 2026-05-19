@@ -146,7 +146,7 @@ export default function OptionsPage() {
       {/* Liste des options */}
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
         {filteredOptions.map((option) => {
-          const Icon = iconMap[option.icon] || Settings
+          const Icon = (option.icon && iconMap[option.icon]) || Settings
           return (
             <Card key={option.id} className="hover:shadow-md transition-shadow">
               <CardContent className="pt-6">
@@ -219,7 +219,7 @@ export default function OptionsPage() {
               </div>
               <div className="space-y-2">
                 <Label htmlFor="edit-icon">Icône</Label>
-                <Select defaultValue={selectedOption.icon}>
+                <Select defaultValue={selectedOption.icon || undefined}>
                   <SelectTrigger id="edit-icon">
                     <SelectValue />
                   </SelectTrigger>

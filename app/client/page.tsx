@@ -5,8 +5,8 @@ import { mockReservations, mockComplaints, mockProperties } from "@/lib/mock-dat
 
 export default function ClientDashboardPage() {
   // Filtrer pour le client actuel (simulation)
-  const clientReservations = mockReservations.filter(r => r.clientId === "client1")
-  const clientComplaints = mockComplaints.filter(c => c.clientId === "client1")
+  const clientReservations = mockReservations.filter(r => r.clientId === "client-1")
+  const clientComplaints = mockComplaints.filter(c => c.clientId === "client-1")
   
   const pendingReservations = clientReservations.filter(r => r.status === "en_attente")
   const confirmedReservations = clientReservations.filter(r => r.status === "confirmee")
@@ -100,28 +100,31 @@ export default function ClientDashboardPage() {
             </div>
             <div className="divide-y divide-border">
               {clientReservations.length > 0 ? (
-                clientReservations.slice(0, 3).map((reservation) => (
-                  <Link
-                    key={reservation.id}
-                    href={`/client/reservations/${reservation.id}`}
-                    className="flex items-center gap-4 p-4 hover:bg-muted/50 transition-colors"
-                  >
-                    <div className="w-12 h-12 rounded-lg bg-muted flex items-center justify-center flex-shrink-0">
-                      <Home className="h-6 w-6 text-muted-foreground" />
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <p className="font-medium text-foreground truncate">
-                        {reservation.property?.title}
-                      </p>
-                      <p className="text-sm text-muted-foreground">
-                        {reservation.startDate.toLocaleDateString("fr-FR")} - {reservation.endDate.toLocaleDateString("fr-FR")}
-                      </p>
-                    </div>
-                    <span className={`px-2.5 py-1 rounded-full text-xs font-medium ${statusColors[reservation.status]}`}>
-                      {statusLabels[reservation.status]}
-                    </span>
-                  </Link>
-                ))
+                clientReservations.slice(0, 3).map((reservation) => {
+                  const property = mockProperties.find(p => p.id === reservation.propertyId)
+                  return (
+                    <Link
+                      key={reservation.id}
+                      href={`/client/reservations/${reservation.id}`}
+                      className="flex items-center gap-4 p-4 hover:bg-muted/50 transition-colors"
+                    >
+                      <div className="w-12 h-12 rounded-lg bg-muted flex items-center justify-center flex-shrink-0">
+                        <Home className="h-6 w-6 text-muted-foreground" />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="font-medium text-foreground truncate">
+                          {property?.title}
+                        </p>
+                        <p className="text-sm text-muted-foreground">
+                          {new Date(reservation.startDate).toLocaleDateString("fr-FR")} - {new Date(reservation.endDate).toLocaleDateString("fr-FR")}
+                        </p>
+                      </div>
+                      <span className={`px-2.5 py-1 rounded-full text-xs font-medium ${statusColors[reservation.status]}`}>
+                        {statusLabels[reservation.status]}
+                      </span>
+                    </Link>
+                  )
+                })
               ) : (
                 <div className="p-8 text-center">
                   <Calendar className="h-10 w-10 text-muted-foreground mx-auto mb-3" />
@@ -153,12 +156,12 @@ export default function ClientDashboardPage() {
               {clientComplaints.length > 0 ? (
                 clientComplaints.slice(0, 3).map((complaint) => {
                   const complaintStatusColors = {
-                    nouvelle: "bg-blue-100 text-blue-800",
+                    ouverte: "bg-blue-100 text-blue-800",
                     en_cours: "bg-yellow-100 text-yellow-800",
                     traitee: "bg-green-100 text-green-800",
                   }
                   const complaintStatusLabels = {
-                    nouvelle: "Nouvelle",
+                    ouverte: "Nouvelle",
                     en_cours: "En cours",
                     traitee: "Traitee",
                   }
@@ -174,11 +177,11 @@ export default function ClientDashboardPage() {
                       <div className="flex-1 min-w-0">
                         <p className="font-medium text-foreground truncate">{complaint.subject}</p>
                         <p className="text-sm text-muted-foreground">
-                          {complaint.createdAt.toLocaleDateString("fr-FR")}
+                          {new Date(complaint.createdAt).toLocaleDateString("fr-FR")}
                         </p>
                       </div>
-                      <span className={`px-2.5 py-1 rounded-full text-xs font-medium ${complaintStatusColors[complaint.status]}`}>
-                        {complaintStatusLabels[complaint.status]}
+                      <span className={`px-2.5 py-1 rounded-full text-xs font-medium ${complaintStatusColors[complaint.status as 'ouverte' | 'en_cours' | 'traitee']}`}>
+                        {complaintStatusLabels[complaint.status as 'ouverte' | 'en_cours' | 'traitee']}
                       </span>
                     </Link>
                   )

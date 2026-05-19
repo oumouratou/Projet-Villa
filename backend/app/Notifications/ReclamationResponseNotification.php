@@ -4,10 +4,11 @@ namespace App\Notifications;
 
 use App\Models\Reclamation;
 use Illuminate\Bus\Queueable;
+use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Notifications\Messages\MailMessage;
 use Illuminate\Notifications\Notification;
 
-class ReclamationResponseNotification extends Notification
+class ReclamationResponseNotification extends Notification implements ShouldQueue
 {
     use Queueable;
 
@@ -15,7 +16,18 @@ class ReclamationResponseNotification extends Notification
 
     public function via(object $notifiable): array
     {
-        return ['mail'];
+        return ['mail', 'database'];
+    }
+
+    public function toArray(object $notifiable): array
+    {
+        $subject = $this->reclamation->sujet ?? 'Réclamation';
+        return [
+            'reclamation_id' => $this->reclamation->id,
+            'type' => 'reclamation',
+            'message' => 'Nouvelle réponse à votre réclamation : ' . $subject,
+            'subject' => $subject,
+        ];
     }
 
     public function toMail(object $notifiable): MailMessage

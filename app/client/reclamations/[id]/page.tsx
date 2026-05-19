@@ -4,7 +4,7 @@ import {
   ArrowLeft, MessageSquare, Clock, AlertCircle, CheckCircle, Calendar, Home, User
 } from "lucide-react"
 import { DashboardHeader } from "@/components/dashboard-header"
-import { mockComplaints } from "@/lib/mock-data"
+import { mockComplaints, mockReservations, mockProperties } from "@/lib/mock-data"
 import type { ComplaintStatus } from "@/lib/types"
 
 interface ComplaintDetailPageProps {
@@ -19,20 +19,23 @@ export default async function ComplaintDetailPage({ params }: ComplaintDetailPag
     notFound()
   }
 
+  const reservation = mockReservations.find(r => r.id === complaint.reservationId)
+  const property = reservation ? mockProperties.find(p => p.id === reservation.propertyId) : undefined
+
   const statusColors: Record<ComplaintStatus, string> = {
-    nouvelle: "bg-blue-100 text-blue-800 border-blue-200",
+    ouverte: "bg-blue-100 text-blue-800 border-blue-200",
     en_cours: "bg-yellow-100 text-yellow-800 border-yellow-200",
     traitee: "bg-green-100 text-green-800 border-green-200",
   }
 
   const statusLabels: Record<ComplaintStatus, string> = {
-    nouvelle: "Nouvelle - En attente de traitement",
+    ouverte: "Nouvelle - En attente de traitement",
     en_cours: "En cours de traitement",
     traitee: "Reclamation traitee",
   }
 
   const statusIcons: Record<ComplaintStatus, React.ElementType> = {
-    nouvelle: AlertCircle,
+    ouverte: AlertCircle,
     en_cours: Clock,
     traitee: CheckCircle,
   }
@@ -58,7 +61,7 @@ export default async function ComplaintDetailPage({ params }: ComplaintDetailPag
             <StatusIcon className="h-6 w-6" />
             <div>
               <p className="font-semibold">{statusLabels[complaint.status]}</p>
-              {complaint.status === "nouvelle" && (
+              {complaint.status === "ouverte" && (
                 <p className="text-sm opacity-80">Votre reclamation sera traitee dans les plus brefs delais</p>
               )}
               {complaint.status === "en_cours" && (
@@ -90,7 +93,7 @@ export default async function ComplaintDetailPage({ params }: ComplaintDetailPag
           </div>
 
           {/* Linked Reservation */}
-          {complaint.reservation && (
+          {reservation && (
             <div className="bg-card rounded-xl border border-border p-5">
               <h3 className="font-semibold text-foreground mb-4 flex items-center gap-2">
                 <Home className="h-5 w-5 text-primary" />
@@ -104,9 +107,9 @@ export default async function ComplaintDetailPage({ params }: ComplaintDetailPag
                   <Home className="h-6 w-6 text-muted-foreground" />
                 </div>
                 <div>
-                  <p className="font-medium text-foreground">{complaint.reservation.property?.title}</p>
+                  <p className="font-medium text-foreground">{property?.title}</p>
                   <p className="text-sm text-muted-foreground">
-                    {complaint.reservation.startDate.toLocaleDateString("fr-FR")} - {complaint.reservation.endDate.toLocaleDateString("fr-FR")}
+                    {new Date(reservation.startDate).toLocaleDateString("fr-FR")} - {new Date(reservation.endDate).toLocaleDateString("fr-FR")}
                   </p>
                 </div>
               </Link>
@@ -123,7 +126,7 @@ export default async function ComplaintDetailPage({ params }: ComplaintDetailPag
               <div className="bg-muted/50 rounded-lg p-4">
                 <p className="text-foreground">{complaint.agentResponse}</p>
                 <p className="text-xs text-muted-foreground mt-3">
-                  Repondu le {complaint.updatedAt.toLocaleDateString("fr-FR")}
+                  Repondu le {complaint.updatedAt ? new Date(complaint.updatedAt).toLocaleDateString("fr-FR") : ""}
                 </p>
               </div>
             </div>
@@ -143,7 +146,7 @@ export default async function ComplaintDetailPage({ params }: ComplaintDetailPag
                 <div>
                   <p className="font-medium text-foreground">Reclamation creee</p>
                   <p className="text-sm text-muted-foreground">
-                    {complaint.createdAt.toLocaleDateString("fr-FR", {
+                    {new Date(complaint.createdAt).toLocaleDateString("fr-FR", {
                       weekday: "long",
                       year: "numeric",
                       month: "long",
@@ -153,7 +156,7 @@ export default async function ComplaintDetailPage({ params }: ComplaintDetailPag
                 </div>
               </div>
 
-              {complaint.status !== "nouvelle" && (
+              {complaint.status !== "ouverte" && (
                 <div className="flex gap-4">
                   <div className="w-10 h-10 rounded-full bg-yellow-100 flex items-center justify-center flex-shrink-0">
                     <Clock className="h-5 w-5 text-yellow-600" />
@@ -167,7 +170,7 @@ export default async function ComplaintDetailPage({ params }: ComplaintDetailPag
                 </div>
               )}
 
-              {complaint.status === "traitee" && (
+              {complaint.status === "traitee" && complaint.updatedAt && (
                 <div className="flex gap-4">
                   <div className="w-10 h-10 rounded-full bg-green-100 flex items-center justify-center flex-shrink-0">
                     <CheckCircle className="h-5 w-5 text-green-600" />
@@ -175,7 +178,7 @@ export default async function ComplaintDetailPage({ params }: ComplaintDetailPag
                   <div>
                     <p className="font-medium text-foreground">Reclamation traitee</p>
                     <p className="text-sm text-muted-foreground">
-                      {complaint.updatedAt.toLocaleDateString("fr-FR", {
+                      {new Date(complaint.updatedAt).toLocaleDateString("fr-FR", {
                         weekday: "long",
                         year: "numeric",
                         month: "long",

@@ -4,7 +4,7 @@ import { useState } from "react"
 import Link from "next/link"
 import { Calendar, Home, Search, Filter, Eye, Clock, CheckCircle, XCircle, Ban } from "lucide-react"
 import { DashboardHeader } from "@/components/dashboard-header"
-import { mockReservations } from "@/lib/mock-data"
+import { mockReservations, mockProperties } from "@/lib/mock-data"
 import type { ReservationStatus } from "@/lib/types"
 
 export default function ClientReservationsPage() {
@@ -12,13 +12,14 @@ export default function ClientReservationsPage() {
   const [searchQuery, setSearchQuery] = useState("")
 
   // Filtrer pour le client actuel (simulation)
-  const clientReservations = mockReservations.filter(r => r.clientId === "client1")
+  const clientReservations = mockReservations.filter(r => r.clientId === "client-1")
 
   const filteredReservations = clientReservations.filter(reservation => {
+    const property = mockProperties.find(p => p.id === reservation.propertyId)
     const matchesStatus = statusFilter === "all" || reservation.status === statusFilter
     const matchesSearch = !searchQuery || 
-      reservation.property?.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      reservation.property?.city.toLowerCase().includes(searchQuery.toLowerCase())
+      property?.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      property?.city.toLowerCase().includes(searchQuery.toLowerCase())
     return matchesStatus && matchesSearch
   })
 
@@ -137,6 +138,7 @@ export default function ClientReservationsPage() {
           <div className="space-y-4">
             {filteredReservations.map((reservation) => {
               const StatusIcon = statusIcons[reservation.status]
+              const property = mockProperties.find(p => p.id === reservation.propertyId)
               return (
                 <div
                   key={reservation.id}
@@ -149,15 +151,15 @@ export default function ClientReservationsPage() {
                       </div>
                       <div>
                         <h3 className="font-semibold text-foreground mb-1">
-                          {reservation.property?.title}
+                          {property?.title}
                         </h3>
                         <p className="text-sm text-muted-foreground mb-2">
-                          {reservation.property?.city}
+                          {property?.city}
                         </p>
                         <div className="flex flex-wrap items-center gap-3 text-sm">
                           <span className="flex items-center gap-1 text-muted-foreground">
                             <Calendar className="h-4 w-4" />
-                            {reservation.startDate.toLocaleDateString("fr-FR")} - {reservation.endDate.toLocaleDateString("fr-FR")}
+                            {new Date(reservation.startDate).toLocaleDateString("fr-FR")} - {new Date(reservation.endDate).toLocaleDateString("fr-FR")}
                           </span>
                           <span className="font-medium text-foreground">
                             {reservation.totalPrice.toLocaleString()} EUR

@@ -53,7 +53,7 @@ export default function PropertyDetailPage({ params }: { params: Promise<{ id: s
   }
 
   const propertyReservations = mockReservations.filter(r => r.propertyId === property.id)
-  const propertyOptions = mockOptions.filter(o => property.options.includes(o.id))
+  const propertyOptions = property.options
 
   return (
     <div className="space-y-6">
@@ -167,7 +167,7 @@ export default function PropertyDetailPage({ params }: { params: Promise<{ id: s
             <CardContent>
               <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
                 {propertyOptions.map((option) => {
-                  const Icon = iconMap[option.icon] || Wifi
+                  const Icon = (option.icon && iconMap[option.icon]) || Wifi
                   return (
                     <div key={option.id} className="flex items-center gap-2 p-3 rounded-lg border">
                       <Icon className="h-5 w-5 text-primary" />

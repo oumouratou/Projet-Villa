@@ -4,36 +4,20 @@ import Link from "next/link"
 import { Building2, Menu, X, User, LogOut } from "lucide-react"
 import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
+import { useAuth } from "@/hooks/use-auth"
+import { NotificationBell } from "./notification-bell"
 
 export function PublicHeader() {
   const [isMenuOpen, setIsMenuOpen] = useState(false)
-  const [isAuthenticated, setIsAuthenticated] = useState(false)
-  const [userRole, setUserRole] = useState<string | null>(null)
+  const { user, isAuthenticated, logout } = useAuth()
   const router = useRouter()
 
-  useEffect(() => {
-    const token = localStorage.getItem("auth_token")
-    const userStr = localStorage.getItem("auth_user")
-    if (token && userStr) {
-      try {
-        const user = JSON.parse(userStr)
-        setIsAuthenticated(true)
-        setUserRole(user.role)
-      } catch {
-        setIsAuthenticated(false)
-      }
-    }
-  }, [])
-
   const handleLogout = () => {
-    localStorage.removeItem("auth_token")
-    localStorage.removeItem("auth_user")
-    setIsAuthenticated(false)
-    setUserRole(null)
+    logout()
     router.push("/")
   }
 
-  const dashboardLink = userRole === "admin" ? "/admin" : userRole === "agent" ? "/agent" : "/client"
+  const dashboardLink = user?.role === "admin" ? "/admin" : user?.role === "agent" ? "/agent" : "/client"
 
   return (
     <header className="sticky top-0 z-50 bg-card border-b border-border">
@@ -53,6 +37,7 @@ export function PublicHeader() {
           <div className="hidden md:flex items-center gap-4">
             {isAuthenticated ? (
               <>
+                <NotificationBell />
                 <Link href={dashboardLink} className="flex items-center gap-2 text-muted-foreground hover:text-foreground transition-colors">
                   <User className="h-4 w-4" />
                   Mon espace

@@ -33,8 +33,13 @@ export default function ImageGallery({ images = [], title = '' }: Props) {
           <button aria-label="Fermer" onClick={() => setOpen(false)} className="absolute top-6 right-6 text-white bg-black/40 rounded-full p-2">✕</button>
           <button aria-label="Précédent" onClick={() => setIndex((index - 1 + imgs.length) % imgs.length)} className="absolute left-6 text-white bg-black/40 rounded-full p-2">‹</button>
 
-          <div className="max-w-[90%] max-h-[90%]">
-            <Image src={imgs[index]} alt={`${title} ${index + 1}`} width={1600} height={900} className="object-contain" />
+          <div className="relative w-full h-full max-w-[90vw] max-h-[90vh]">
+            <Image 
+              src={imgs[index]} 
+              alt={`${title} ${index + 1}`} 
+              fill
+              className="object-contain" 
+            />
           </div>
 
           <button aria-label="Suivant" onClick={() => setIndex((index + 1) % imgs.length)} className="absolute right-6 text-white bg-black/40 rounded-full p-2">›</button>

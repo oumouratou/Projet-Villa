@@ -21,7 +21,7 @@ export function ReservationButton({ propertyId }: ReservationButtonProps) {
     if (isAuthenticated) {
       router.push(`/client/reservations/nouvelle?bien=${propertyId}`)
     } else {
-      router.push(`/connexion?redirect=/client/reservations/nouvelle?bien=${propertyId}`)
+      router.push(`/inscription?redirect=/client/reservations/nouvelle?bien=${propertyId}`)
     }
   }
 
@@ -41,7 +41,7 @@ export function ReservationButton({ propertyId }: ReservationButtonProps) {
 
       {!isAuthenticated && (
         <p className="text-sm text-muted-foreground text-center">
-          Connectez-vous pour effectuer une réservation
+          Créez un compte pour effectuer une réservation
         </p>
       )}
     </div>

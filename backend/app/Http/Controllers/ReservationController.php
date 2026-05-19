@@ -4,6 +4,8 @@ namespace App\Http\Controllers;
 
 use App\Models\BienImmobilier;
 use App\Models\Reservation;
+use App\Models\User;
+use App\Notifications\NewReservationForAgent;
 use App\Notifications\ReservationStatusNotification;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
@@ -41,8 +43,14 @@ class ReservationController extends Controller
 
     public function store(Request $request)
     {
-        if (! $request->user()) {
-            return response()->json(['message' => 'Authentification requise pour réserver ce bien.'], 401);
+        $user = $request->user();
+        if (! $user) {
+            return response()->json(['message' => 'Vous devez créer un compte et vous connecter pour pouvoir réserver un bien.'], 401);
+        }
+
+        // Seuls les clients peuvent créer des réservations
+        if (! $this->userHasRole($user, 'client')) {
+            return response()->json(['message' => 'Seuls les clients peuvent effectuer une réservation. Veuillez vous inscrire en tant que client.'], 403);
         }
 
         $payload = $request->validate([
@@ -99,9 +107,23 @@ class ReservationController extends Controller
             return response()->json(['message' => 'Ce bien est déjà réservé sur ces dates.'], 422);
         }
 
-        $clientId = $payload['client_id'] ?? optional($request->user()?->client)->id;
+        $user = $request->user();
+        $clientId = $payload['client_id'] ?? optional($user?->client)->id;
+
+        // Auto-create client profile if it doesn't exist for this user
+        if (! $clientId && $user) {
+            $client = \App\Models\Client::firstOrCreate(
+                ['user_id' => $user->id],
+                [
+                    'phone'   => $user->phone ?? '0000000000',
+                    'address' => 'Adresse non renseignée',
+                ]
+            );
+            $clientId = $client->id;
+        }
+
         if (! $clientId) {
-            return response()->json(['message' => 'Votre compte client est requis pour finaliser la réservation.'], 422);
+            return response()->json(['message' => 'Impossible de créer la réservation. Votre profil client est introuvable. Veuillez vous reconnecter ou contacter le support.'], 422);
         }
 
         $reservation = Reservation::create([
@@ -116,6 +138,12 @@ class ReservationController extends Controller
             'statut'             => $payload['statut'] ?? 'en_attente',
             'commentaire_agent'  => $payload['commentaire_agent'] ?? null,
         ]);
+
+        // Notify agent
+        if ($bien->agent) {
+            $bien->agent->notify(new NewReservationForAgent($reservation));
+        }
+
 
         return response()->json(['data' => $this->serializeReservation($reservation)], 201);
     }

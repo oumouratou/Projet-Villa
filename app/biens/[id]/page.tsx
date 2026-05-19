@@ -11,6 +11,7 @@ import { PublicFooter } from "@/components/public-footer"
 import { ReservationButton } from "@/components/reservation-button"
 import { getProperty } from "@/lib/backend-api"
 import ImageGallery from "@/components/image-gallery"
+import { ReservationAuthGuard } from "@/components/reservation-auth-guard"
 
 const iconMap: Record<string, React.ElementType> = {
   wifi: Wifi,
@@ -126,55 +127,14 @@ export default async function PropertyDetailPage({ params }: PropertyDetailPageP
 
             {/* Sidebar - Reservation */}
             <div className="lg:col-span-1">
-              <div className="bg-card rounded-xl border border-border p-6 sticky top-24">
-                <div className="text-center mb-6">
-                  <div className="text-3xl font-bold text-primary">
-                    {property.pricePerNight.toLocaleString()} FCFA
-                  </div>
-                  <div className="text-muted-foreground">par nuit</div>
+              <div className="sticky top-24 bg-card border border-border rounded-xl p-6">
+                <div className="flex items-baseline gap-2 mb-6">
+                  <span className="text-3xl font-bold text-foreground">{property.pricePerNight} €</span>
+                  <span className="text-muted-foreground">/ nuit</span>
                 </div>
-
-                {property.status === "disponible" ? (
+                <ReservationAuthGuard propertyId={property.id}>
                   <ReservationButton propertyId={property.id} />
-                ) : (
-                  <div className="text-center py-4 bg-muted rounded-lg">
-                    <p className="text-muted-foreground">
-                      Ce bien n&apos;est pas disponible a la reservation
-                    </p>
-                  </div>
-                )}
-
-                <hr className="my-6 border-border" />
-
-                <div className="space-y-4">
-                  <h3 className="font-semibold text-foreground">Informations</h3>
-                  <div className="text-sm space-y-2">
-                    <div className="flex justify-between">
-                      <span className="text-muted-foreground">Reference</span>
-                      <span className="text-foreground font-medium">#{property.id}</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-muted-foreground">Ville</span>
-                      <span className="text-foreground font-medium">{property.city}</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-muted-foreground">Code postal</span>
-                      <span className="text-foreground font-medium">{property.postalCode ?? "-"}</span>
-                    </div>
-                  </div>
-                </div>
-
-                <hr className="my-6 border-border" />
-
-                <div className="text-center">
-                  <p className="text-sm text-muted-foreground mb-2">Des questions ?</p>
-                  <Link
-                    href="/contact"
-                    className="text-primary hover:text-primary/80 font-medium text-sm"
-                  >
-                    Contactez-nous
-                  </Link>
-                </div>
+                </ReservationAuthGuard>
               </div>
             </div>
           </div>

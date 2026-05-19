@@ -1,13 +1,17 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import { RouterLink } from 'vue-router'
-import { ArrowRight, BedDouble, Bath, MapPin, Maximize, LogIn, Calendar, Lock } from 'lucide-vue-next'
-import { getStoredToken } from '@/lib/session'
+import { ArrowRight, BedDouble, Bath, MapPin, Maximize, LogIn, Calendar, Lock, ShieldAlert } from 'lucide-vue-next'
+import { getStoredToken, getStoredRole } from '@/lib/session'
 import { resolveImageSrc } from '@/lib/image'
 
 const props = defineProps<{ property: any }>()
 
 const isLoggedIn  = computed(() => Boolean(getStoredToken()))
+const userRole = computed(() => getStoredRole())
+const isClient = computed(() => isLoggedIn.value && userRole.value === 'client')
+const isStaff = computed(() => isLoggedIn.value && (userRole.value === 'admin' || userRole.value === 'agent'))
+
 const isAvailable = computed(() => props.property.status === 'disponible')
 
 const loginUrl = computed(() => {
@@ -104,24 +108,31 @@ const primaryImage = (images: string[]) => {
           <Lock class="h-4 w-4" />Réservé
         </div>
 
-        <!-- Connecté = réserver -->
-        <RouterLink v-else-if="isLoggedIn" :to="reserveUrl"
+        <!-- Connecté en tant que client = réserver -->
+        <RouterLink v-else-if="isClient" :to="reserveUrl"
           class="inline-flex flex-1 items-center justify-center gap-1.5 rounded-2xl bg-sky-500 px-3 py-2.5 text-sm font-semibold text-white hover:bg-sky-600 transition-colors">
           <Calendar class="h-4 w-4" />Réserver
         </RouterLink>
 
-        <!-- Non connecté = connexion -->
+        <!-- Connecté en tant qu'admin/agent = bouton Réserver qui redirige vers l'inscription -->
+        <RouterLink v-else-if="isStaff" :to="registerUrl"
+          class="inline-flex flex-1 items-center justify-center gap-1.5 rounded-2xl bg-sky-500 px-3 py-2.5 text-sm font-semibold text-white hover:bg-sky-600 transition-colors">
+          <Calendar class="h-4 w-4" />Réserver
+        </RouterLink>
+
+        <!-- Non connecté = bouton Réserver qui redirige vers la connexion -->
         <RouterLink v-else :to="loginUrl"
-          class="inline-flex flex-1 items-center justify-center gap-1.5 rounded-2xl bg-slate-950 px-3 py-2.5 text-sm font-semibold text-white hover:bg-slate-800 transition-colors">
-          <LogIn class="h-4 w-4" />Se connecter
+          class="inline-flex flex-1 items-center justify-center gap-1.5 rounded-2xl bg-sky-500 px-3 py-2.5 text-sm font-semibold text-white hover:bg-sky-600 transition-colors">
+          <Calendar class="h-4 w-4" />Réserver
         </RouterLink>
       </div>
 
       <p v-if="!isLoggedIn && isAvailable" class="text-center text-xs text-slate-400">
-        Ou
+        <RouterLink :to="loginUrl" class="font-semibold text-sky-500 hover:text-sky-600">Connectez-vous</RouterLink>
+        ou
         <RouterLink :to="registerUrl"
           class="font-semibold text-sky-500 underline underline-offset-2 hover:text-sky-600">
-          créez un compte gratuitement
+          créez un compte
         </RouterLink>
         pour réserver
       </p>

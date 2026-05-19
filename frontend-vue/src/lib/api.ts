@@ -160,11 +160,14 @@ export async function logoutUser(): Promise<void> {
 }
 
 export type NotificationItem = {
-  id: number
-  type: 'reservation' | 'complaint'
+  id: string | number
+  db_id?: string
+  type: string
   message: string
   status?: string
   subject?: string
+  reservation_id?: number | string | null
+  reclamation_id?: number | string | null
   time?: string | null
   unread?: boolean
 }
@@ -180,6 +183,22 @@ export async function getNotificationSummary(): Promise<NotificationSummary> {
   try {
     const { data } = await api.get<ApiResponse<NotificationSummary>>('/notifications/summary')
     return data.data
+  } catch (error) {
+    throw normalizeError(error)
+  }
+}
+
+export async function markNotificationAsRead(id: string): Promise<void> {
+  try {
+    await api.post(`/notifications/${id}/read`)
+  } catch (error) {
+    throw normalizeError(error)
+  }
+}
+
+export async function markAllNotificationsAsRead(): Promise<void> {
+  try {
+    await api.post('/notifications/mark-all-read')
   } catch (error) {
     throw normalizeError(error)
   }

@@ -54,141 +54,180 @@ onMounted(async () => {
 </script>
 
 <template>
-  <div class="space-y-6 p-6">
-    <div>
-      <h1 class="text-3xl font-bold text-foreground">Tableau de bord Agent</h1>
-      <p class="mt-1 text-muted-foreground">
-        Bienvenue, gerez vos biens et reservations
-      </p>
+  <div class="space-y-6 p-6 lg:p-8 max-w-7xl mx-auto bg-slate-50 min-h-full">
+    <div class="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+      <div>
+        <h1 class="text-3xl font-black text-slate-950 tracking-tight">Tableau de bord Agent</h1>
+        <p class="mt-1 text-slate-500">
+          Bienvenue sur votre espace de gestion des biens et réservations.
+        </p>
+      </div>
     </div>
 
-    <section class="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-      <article class="rounded-xl border border-border bg-card p-5">
-        <div class="flex items-center justify-between">
-          <p class="text-sm text-muted-foreground">Biens geres</p>
-          <Building2 class="h-5 w-5 text-primary" />
+    <section class="grid gap-5 md:grid-cols-2 xl:grid-cols-4">
+      <article class="rounded-[1.5rem] border border-slate-100 bg-white p-6 shadow-sm hover:shadow-md transition-shadow">
+        <div class="flex items-center gap-4">
+          <div class="flex h-14 w-14 items-center justify-center rounded-2xl bg-blue-50 text-blue-600">
+            <Building2 class="h-7 w-7" />
+          </div>
+          <div>
+            <p class="text-3xl font-black text-slate-900">{{ dashboardStats.totalProperties }}</p>
+            <p class="text-sm font-semibold text-slate-500">Biens gérés</p>
+          </div>
         </div>
-        <p class="mt-2 text-2xl font-bold">{{ dashboardStats.totalProperties }}</p>
-        <p class="mt-1 text-xs text-muted-foreground">
-          {{ availableProperties.length }} disponibles
-        </p>
+        <div class="mt-4 border-t border-slate-100 pt-3">
+          <p class="text-xs font-medium text-slate-500">
+            <span class="text-blue-600 font-bold">{{ availableProperties.length }}</span> disponibles
+          </p>
+        </div>
       </article>
 
-      <article class="rounded-xl border border-border bg-card p-5">
-        <div class="flex items-center justify-between">
-          <p class="text-sm text-muted-foreground">Reservations en attente</p>
-          <Clock class="h-5 w-5 text-orange-600" />
+      <article class="rounded-[1.5rem] border border-slate-100 bg-white p-6 shadow-sm hover:shadow-md transition-shadow">
+        <div class="flex items-center gap-4">
+          <div class="flex h-14 w-14 items-center justify-center rounded-2xl bg-amber-50 text-amber-500">
+            <Clock class="h-7 w-7" />
+          </div>
+          <div>
+            <p class="text-3xl font-black text-slate-900">{{ pendingReservations.length }}</p>
+            <p class="text-sm font-semibold text-slate-500">Réservations</p>
+          </div>
         </div>
-        <p class="mt-2 text-2xl font-bold">{{ pendingReservations.length }}</p>
-        <p class="mt-1 text-xs text-muted-foreground">A traiter</p>
+        <div class="mt-4 border-t border-slate-100 pt-3">
+          <p class="text-xs font-medium text-slate-500">En attente de traitement</p>
+        </div>
       </article>
 
-      <article class="rounded-xl border border-border bg-card p-5">
-        <div class="flex items-center justify-between">
-          <p class="text-sm text-muted-foreground">Reclamations ouvertes</p>
-          <MessageSquare class="h-5 w-5 text-red-600" />
+      <article class="rounded-[1.5rem] border border-slate-100 bg-white p-6 shadow-sm hover:shadow-md transition-shadow">
+        <div class="flex items-center gap-4">
+          <div class="flex h-14 w-14 items-center justify-center rounded-2xl bg-red-50 text-red-500">
+            <MessageSquare class="h-7 w-7" />
+          </div>
+          <div>
+            <p class="text-3xl font-black text-slate-900">{{ pendingComplaints.length }}</p>
+            <p class="text-sm font-semibold text-slate-500">Réclamations</p>
+          </div>
         </div>
-        <p class="mt-2 text-2xl font-bold">{{ pendingComplaints.length }}</p>
-        <p class="mt-1 text-xs text-muted-foreground">En cours de traitement</p>
+        <div class="mt-4 border-t border-slate-100 pt-3">
+          <p class="text-xs font-medium text-slate-500">Ouvertes en ce moment</p>
+        </div>
       </article>
 
-      <article class="rounded-xl border border-border bg-card p-5">
-        <div class="flex items-center justify-between">
-          <p class="text-sm text-muted-foreground">Clients actifs</p>
-          <Users class="h-5 w-5 text-green-600" />
+      <article class="rounded-[1.5rem] border border-slate-100 bg-white p-6 shadow-sm hover:shadow-md transition-shadow">
+        <div class="flex items-center gap-4">
+          <div class="flex h-14 w-14 items-center justify-center rounded-2xl bg-emerald-50 text-emerald-600">
+            <Users class="h-7 w-7" />
+          </div>
+          <div>
+            <p class="text-3xl font-black text-slate-900">{{ dashboardStats.totalClients || clients.length }}</p>
+            <p class="text-sm font-semibold text-slate-500">Clients actifs</p>
+          </div>
         </div>
-        <p class="mt-2 text-2xl font-bold">{{ dashboardStats.totalClients || clients.length }}</p>
-        <p class="mt-1 text-xs text-muted-foreground">Inscrits sur la plateforme</p>
+        <div class="mt-4 border-t border-slate-100 pt-3">
+          <p class="text-xs font-medium text-slate-500">Inscrits sur la plateforme</p>
+        </div>
       </article>
     </section>
 
     <section class="grid gap-6 lg:grid-cols-2">
-      <div class="rounded-xl border border-border bg-card">
-        <div class="flex items-center justify-between border-b border-border p-5">
+      <div class="rounded-[1.5rem] border border-slate-100 bg-white shadow-sm overflow-hidden flex flex-col">
+        <div class="flex items-center justify-between border-b border-slate-100 p-6 bg-slate-50/50">
           <div>
-            <h2 class="font-semibold">Reservations en attente</h2>
-            <p class="text-sm text-muted-foreground">Actions requises</p>
+            <h2 class="font-bold text-slate-950 flex items-center gap-2">
+              <Clock class="h-5 w-5 text-amber-500" />
+              Réservations en attente
+            </h2>
+            <p class="text-xs text-slate-500 mt-0.5">Actions requises de votre part</p>
           </div>
           <RouterLink
             to="/agent/reservations"
-            class="inline-flex items-center gap-1 text-sm text-primary"
+            class="inline-flex items-center gap-1 text-sm font-bold text-sky-600 hover:text-sky-700 transition-colors"
           >
             Voir tout
             <ArrowRight class="h-4 w-4" />
           </RouterLink>
         </div>
 
-        <div class="space-y-3 p-5">
-          <article
-            v-for="reservation in pendingReservations.slice(0, 4)"
-            :key="reservation.id"
-            class="flex items-center justify-between rounded-lg border border-border p-3"
-          >
-            <div class="flex items-center gap-3">
-              <div class="flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10">
-                <Home class="h-5 w-5 text-primary" />
+        <div class="flex-1 p-6">
+          <div class="space-y-4">
+            <article
+              v-for="reservation in pendingReservations.slice(0, 4)"
+              :key="reservation.id"
+              class="flex items-center justify-between rounded-xl border border-slate-100 p-4 hover:bg-slate-50 hover:shadow-sm transition-all"
+            >
+              <div class="flex items-center gap-4">
+                <div class="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-sky-50 text-sky-600">
+                  <Home class="h-6 w-6" />
+                </div>
+                <div>
+                  <p class="text-sm font-bold text-slate-900">{{ reservation.property?.title || 'Bien #' + reservation.id }}</p>
+                  <p class="text-xs font-medium text-slate-500 mt-0.5">
+                    {{ reservation.client?.firstName }} {{ reservation.client?.lastName }}
+                  </p>
+                  <p class="text-xs text-slate-400 mt-0.5">
+                    Début : <span class="font-semibold text-slate-500">{{ formatDate(reservation.startDate ?? reservation.start_date) }}</span>
+                  </p>
+                </div>
               </div>
-              <div>
-                <p class="text-sm font-medium">{{ reservation.property?.title }}</p>
-                <p class="text-xs text-muted-foreground">
-                  {{ reservation.client?.firstName }} {{ reservation.client?.lastName }}
-                  • {{ formatDate(reservation.startDate ?? reservation.start_date) }}
-                </p>
+
+              <div class="flex items-center gap-2">
+                <RouterLink :to="`/agent/reservations/${reservation.id}`" class="rounded-lg bg-sky-50 p-2 text-sky-600 hover:bg-sky-100 transition-colors" title="Voir les détails">
+                  <ArrowRight class="h-4 w-4" />
+                </RouterLink>
               </div>
-            </div>
+            </article>
 
-            <div class="flex items-center gap-2">
-              <button class="rounded border border-green-600 p-1.5 text-green-600 hover:bg-green-50">
-                <CheckCircle2 class="h-4 w-4" />
-              </button>
-              <button class="rounded border border-red-600 p-1.5 text-red-600 hover:bg-red-50">
-                <XCircle class="h-4 w-4" />
-              </button>
+            <div v-if="pendingReservations.length === 0" class="flex flex-col items-center justify-center py-10 text-center">
+              <CheckCircle2 class="h-12 w-12 text-emerald-100 mb-3" />
+              <p class="font-bold text-slate-700">Aucune réservation en attente</p>
+              <p class="text-sm text-slate-500 mt-1">Vous êtes à jour dans vos traitements.</p>
             </div>
-          </article>
-
-          <p
-            v-if="pendingReservations.length === 0"
-            class="text-sm text-muted-foreground"
-          >
-            Aucune reservation en attente.
-          </p>
+          </div>
         </div>
       </div>
 
-      <div class="rounded-xl border border-border bg-card">
-        <div class="flex items-center justify-between border-b border-border p-5">
+      <div class="rounded-[1.5rem] border border-slate-100 bg-white shadow-sm overflow-hidden flex flex-col">
+        <div class="flex items-center justify-between border-b border-slate-100 p-6 bg-slate-50/50">
           <div>
-            <h2 class="font-semibold">Reclamations ouvertes</h2>
-            <p class="text-sm text-muted-foreground">A traiter en priorite</p>
+            <h2 class="font-bold text-slate-950 flex items-center gap-2">
+              <MessageSquare class="h-5 w-5 text-red-500" />
+              Réclamations ouvertes
+            </h2>
+            <p class="text-xs text-slate-500 mt-0.5">À traiter en priorité</p>
           </div>
           <RouterLink
             to="/agent/reclamations"
-            class="inline-flex items-center gap-1 text-sm text-primary"
+            class="inline-flex items-center gap-1 text-sm font-bold text-sky-600 hover:text-sky-700 transition-colors"
           >
             Voir tout
             <ArrowRight class="h-4 w-4" />
           </RouterLink>
         </div>
 
-        <div class="space-y-3 p-5">
-          <article
-            v-for="complaint in pendingComplaints.slice(0, 4)"
-            :key="complaint.id"
-            class="rounded-lg border border-border p-3"
-          >
-            <p class="font-medium">{{ complaint.subject }}</p>
-            <p class="text-xs text-muted-foreground">
-              {{ formatDate(complaint.createdAt ?? complaint.created_at) }}
-            </p>
-          </article>
+        <div class="flex-1 p-6">
+          <div class="space-y-4">
+            <article
+              v-for="complaint in pendingComplaints.slice(0, 4)"
+              :key="complaint.id"
+              class="flex items-center gap-4 rounded-xl border border-slate-100 p-4 hover:bg-slate-50 hover:shadow-sm transition-all cursor-pointer"
+              @click="$router.push(`/agent/reclamations/${complaint.id}`)"
+            >
+              <div class="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-red-50 text-red-600">
+                <MessageSquare class="h-6 w-6" />
+              </div>
+              <div>
+                <p class="font-bold text-slate-900">{{ complaint.subject || complaint.sujet }}</p>
+                <p class="text-xs font-medium text-slate-500 mt-1">
+                  Reçue le <span class="font-semibold">{{ formatDate(complaint.createdAt ?? complaint.created_at) }}</span>
+                </p>
+              </div>
+            </article>
 
-          <p
-            v-if="pendingComplaints.length === 0"
-            class="text-sm text-muted-foreground"
-          >
-            Aucune reclamation ouverte.
-          </p>
+            <div v-if="pendingComplaints.length === 0" class="flex flex-col items-center justify-center py-10 text-center">
+              <CheckCircle2 class="h-12 w-12 text-emerald-100 mb-3" />
+              <p class="font-bold text-slate-700">Aucune réclamation ouverte</p>
+              <p class="text-sm text-slate-500 mt-1">Tous les clients sont satisfaits.</p>
+            </div>
+          </div>
         </div>
       </div>
     </section>
